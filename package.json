@@ -4,7 +4,7 @@
   "description": "Intelligent Notes Search App",
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-renderer-assets.js",
     "start": "npm run build && electron .",
     "dist": "electron-builder"
   },
