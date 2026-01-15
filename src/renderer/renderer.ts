@@ -12,6 +12,13 @@ interface SearchResult {
   score: number;
 }
 
+interface RendererApi {
+  search: (query: string) => Promise<SearchResult[]>;
+  searchLocal: (query: string) => Promise<SearchResult[]>;
+  openNote: (noteId: string) => void;
+  ping?: () => Promise<string>;
+}
+
 // DOM elements
 const searchInput = document.getElementById('search') as HTMLInputElement;
 const resultsList = document.getElementById('results-list') as HTMLDivElement;
@@ -23,9 +30,47 @@ let selectedIndex = -1;
 let results: SearchResult[] = [];
 let debounceTimer: number;
 let lastQuery = '';
+let loggedMissingApi = false;
 
 // API accessor
-const api = (window as any).api;
+const apiBridge: RendererApi | undefined = (window as any).api;
+
+function formatQueryForLog(query: string): string {
+  const normalized = query.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '<empty>';
+  return normalized.length > 120 ? normalized.slice(0, 120) + '...' : normalized;
+}
+
+function log(message: string, data?: unknown): void {
+  if (data === undefined) console.log(`[Renderer] ${message}`);
+  else console.log(`[Renderer] ${message}`, data);
+}
+
+function logError(message: string, error?: unknown): void {
+  if (error === undefined) console.error(`[Renderer] ${message}`);
+  else console.error(`[Renderer] ${message}`, error);
+}
+
+function showStatus(message: string): void {
+  resultsList.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+window.addEventListener('error', event => {
+  const error = (event as ErrorEvent).error ?? (event as ErrorEvent).message;
+  logError('window error', error);
+});
+
+window.addEventListener('unhandledrejection', event => {
+  logError('unhandledrejection', (event as PromiseRejectionEvent).reason);
+});
+
+log('loaded', { hasApi: Boolean(apiBridge) });
+const pingPromise = apiBridge?.ping?.();
+if (pingPromise) {
+  pingPromise.then(result => log(`ping ${result}`)).catch(error => logError('ping failed', error));
+} else {
+  log('ping unavailable');
+}
 
 // Event listeners
 searchInput.addEventListener('input', handleInput);
@@ -36,15 +81,37 @@ function handleInput(): void {
   clearTimeout(debounceTimer);
   const query = searchInput.value.trim();
 
+  if (!apiBridge) {
+    if (!loggedMissingApi) {
+      logError('window.api is missing (preload not loaded?)');
+      loggedMissingApi = true;
+    }
+    if (query.length >= 2) showStatus('Search API unavailable (preload failed)');
+    return;
+  }
+
   // Immediate local search for responsiveness
   if (query.length >= 2 && query !== lastQuery) {
-    api.searchLocal(query).then((localResults: SearchResult[]) => {
-      if (searchInput.value.trim() === query) {
-        results = localResults;
-        renderResults();
-        if (results.length > 0) selectResult(0);
-      }
-    });
+    const startedAt = performance.now();
+    showStatus('Searching...');
+    log(`searchLocal start len=${query.length} "${formatQueryForLog(query)}"`);
+    try {
+      apiBridge
+        .searchLocal(query)
+        .then((localResults: SearchResult[]) => {
+          log(
+            `searchLocal done results=${localResults.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
+          );
+          if (searchInput.value.trim() === query) {
+            results = localResults;
+            renderResults();
+            if (results.length > 0) selectResult(0);
+          }
+        })
+        .catch((error: unknown) => logError('searchLocal error', error));
+    } catch (error: unknown) {
+      logError('searchLocal threw', error);
+    }
   }
 
   // Debounced AI search after typing stops
@@ -54,9 +121,20 @@ function handleInput(): void {
       return;
     }
     lastQuery = query;
-    results = await api.search(query);
-    renderResults();
-    if (results.length > 0) selectResult(0);
+    const startedAt = performance.now();
+    showStatus('Searching with AI...');
+    log(`search start len=${query.length} "${formatQueryForLog(query)}"`);
+    try {
+      results = await apiBridge.search(query);
+      log(
+        `search done results=${results.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
+      );
+      renderResults();
+      if (results.length > 0) selectResult(0);
+    } catch (error: unknown) {
+      logError('search error', error);
+      showStatus('Search failed (see logs)');
+    }
   }, 800);
 }
 
@@ -73,7 +151,7 @@ function handleKeydown(event: KeyboardEvent): void {
       break;
     case 'Enter':
       if (selectedIndex >= 0 && results[selectedIndex]) {
-        api.openNote(results[selectedIndex].id);
+        apiBridge?.openNote(results[selectedIndex].id);
       }
       break;
   }
@@ -90,6 +168,11 @@ function clearResults(): void {
 
 /** Render search results list */
 function renderResults(): void {
+  if (results.length === 0) {
+    resultsList.innerHTML = `<div class="empty-state">No results</div>`;
+    return;
+  }
+
   resultsList.innerHTML = results
     .map((result, index) => `
       <div class="result ${index === selectedIndex ? 'selected' : ''}" data-index="${index}">
@@ -107,7 +190,7 @@ function renderResults(): void {
     });
     element.addEventListener('dblclick', () => {
       const index = parseInt(element.getAttribute('data-index') || '0', 10);
-      api.openNote(results[index].id);
+      apiBridge?.openNote(results[index].id);
     });
   });
 }

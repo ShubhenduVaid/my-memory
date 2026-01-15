@@ -13,6 +13,7 @@ import {
   Menu,
   shell
 } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
 
@@ -45,6 +46,57 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (typeof message !== 'string') return;
+    const isTagged = message.startsWith('[Renderer]') || message.startsWith('[Preload]');
+    const isLikelyError =
+      level >= 2 ||
+      message.includes('Uncaught') ||
+      message.includes('ERR_') ||
+      message.includes('Failed to load resource');
+    if (!isTagged && !isLikelyError) return;
+    const location =
+      typeof sourceId === 'string' && sourceId.length > 0 ? `${path.basename(sourceId)}:${line}` : '';
+    const formatted = location ? `${message} (${location})` : message;
+    if (isLikelyError) console.error(formatted);
+    else console.log(formatted);
+  });
+
+  (mainWindow.webContents as any).on?.('preload-error', (_event: unknown, preloadPath: string, error: unknown) => {
+    console.error('[Preload] Error loading:', preloadPath, error);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[Window] did-fail-load', { errorCode, errorDescription, validatedURL });
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[Window] render-process-gone', details);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    const url = mainWindow?.webContents.getURL();
+    console.log('[Window] did-finish-load', url);
+
+    const rendererJsPath = path.join(__dirname, '../renderer/renderer.js');
+    console.log('[Window] renderer.js exists', fs.existsSync(rendererJsPath), rendererJsPath);
+
+    mainWindow?.webContents
+      .executeJavaScript(
+        `({
+          url: location.href,
+          readyState: document.readyState,
+          hasApi: typeof window.api !== 'undefined',
+          hasApiSearch: typeof window.api?.search === 'function',
+          hasHandleInput: typeof window.handleInput === 'function',
+          scripts: Array.from(document.scripts).map(s => s.src || '<inline>')
+        })`,
+        true
+      )
+      .then(result => console.log('[Window] diagnostics', result))
+      .catch(error => console.error('[Window] diagnostics error', error));
   });
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -148,13 +200,61 @@ app.on('will-quit', () => {
 
 app.on('window-all-closed', (event: Event) => event.preventDefault());
 
+function formatQueryForLog(query: string): { preview: string; length: number } {
+  const normalized = query.replace(/\s+/g, ' ').trim();
+  const preview =
+    normalized.length > 120 ? normalized.slice(0, 120) + '...' : normalized || '<empty>';
+  return { preview, length: normalized.length };
+}
+
 // IPC handlers
 ipcMain.handle('search', async (_event, query: string) => {
-  return searchManager?.search(query) ?? [];
+  const startedAt = Date.now();
+  const { preview, length } = formatQueryForLog(query);
+  console.log(`[IPC] search start len=${length} "${preview}"`);
+
+  if (!searchManager) {
+    console.log('[IPC] search skipped - SearchManager not initialized');
+    return [];
+  }
+
+  try {
+    const results = await searchManager.search(query);
+    console.log(
+      `[IPC] search done results=${results.length} (${Date.now() - startedAt}ms) len=${length} "${preview}"`
+    );
+    return results;
+  } catch (error) {
+    console.error(`[IPC] search error len=${length} "${preview}"`, error);
+    return [];
+  }
 });
 
 ipcMain.handle('search-local', async (_event, query: string) => {
-  return searchManager?.searchLocal(query) ?? [];
+  const startedAt = Date.now();
+  const { preview, length } = formatQueryForLog(query);
+
+  if (!searchManager) {
+    console.log('[IPC] search-local skipped - SearchManager not initialized');
+    return [];
+  }
+  console.log(`[IPC] search-local start len=${length} "${preview}"`);
+
+  try {
+    const results = searchManager.searchLocal(query);
+    console.log(
+      `[IPC] search-local done results=${results.length} (${Date.now() - startedAt}ms) len=${length} "${preview}"`
+    );
+    return results;
+  } catch (error) {
+    console.error(`[IPC] search-local error len=${length} "${preview}"`, error);
+    return [];
+  }
+});
+
+ipcMain.handle('ping', () => {
+  console.log('[IPC] ping');
+  return 'pong';
 });
 
 ipcMain.on('open-note', (_event, noteId: string) => {

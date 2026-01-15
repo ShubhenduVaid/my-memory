@@ -48,6 +48,19 @@ const GEMINI_MODELS = [
 export class SearchManager {
   private models: ModelEntry[] = [];
   private modelIndex = 0;
+  private loggedEmptyCache = false;
+
+  private formatQueryForLog(query: string): string {
+    const normalized = query.replace(/\s+/g, ' ').trim();
+    if (!normalized) return '<empty>';
+    return normalized.length > 120 ? normalized.slice(0, 120) + '...' : normalized;
+  }
+
+  private logEmptyCacheOnce(caller: 'search' | 'searchLocal'): void {
+    if (this.loggedEmptyCache) return;
+    console.log(`[SearchManager] ${caller}: cache is empty (no notes yet)`);
+    this.loggedEmptyCache = true;
+  }
 
   /** Initialize the search manager with Gemini models */
   async initialize(): Promise<void> {
@@ -79,10 +92,16 @@ export class SearchManager {
    */
   async search(query: string): Promise<SearchResult[]> {
     const notes = cache.getAllNotes();
-    if (notes.length === 0) return [];
+    if (notes.length === 0) {
+      this.logEmptyCacheOnce('search');
+      return [];
+    }
 
     const matches = this.smartSearch(query, notes);
-    if (matches.length === 0) return [];
+    if (matches.length === 0) {
+      console.log(`[SearchManager] search: no matches for "${this.formatQueryForLog(query)}"`);
+      return [];
+    }
 
     // Try to generate AI answer
     const aiAnswer = await this.tryGenerateAnswer(query, matches);
@@ -96,7 +115,10 @@ export class SearchManager {
   /** Search without AI (for real-time typing feedback) */
   searchLocal(query: string): SearchResult[] {
     const notes = cache.getAllNotes();
-    if (notes.length === 0) return [];
+    if (notes.length === 0) {
+      this.logEmptyCacheOnce('searchLocal');
+      return [];
+    }
     return this.smartSearch(query, notes);
   }
 
