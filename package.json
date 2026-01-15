@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && node scripts/copy-renderer-assets.js",
     "start": "npm run build && electron .",
-    "dist": "electron-builder",
+    "dist": "npm run build && electron-builder",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "author": "",
@@ -27,13 +27,28 @@
   "build": {
     "appId": "com.mymemory.app",
     "productName": "My Memory",
+    "directories": {
+      "output": "release"
+    },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg"
+      "target": "dmg",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "My Memory needs access to Apple Notes to fetch and search your notes."
+      }
     },
+    "asarUnpack": [
+      "**/*.node"
+    ],
     "files": [
       "dist/**/*",
-      ".env"
+      ".env",
+      "!dist/mac-*",
+      "!dist/*.dmg",
+      "!dist/*.blockmap",
+      "!dist/builder-*.yml",
+      "!dist/builder-*.yaml",
+      "!dist/latest-mac.yml"
     ]
   }
 }
