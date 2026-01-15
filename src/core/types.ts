@@ -1,3 +1,9 @@
+/**
+ * Core type definitions for the My Memory application.
+ * Defines the plugin architecture and data models.
+ */
+
+/** Represents a note from any source adapter */
 export interface Note {
   id: string;
   title: string;
@@ -5,19 +11,37 @@ export interface Note {
   source: string;
   sourceId: string;
   modifiedAt: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
+/** Callback type for note change notifications */
 export type WatchCallback = (notes: Note[]) => void;
 
+/**
+ * Interface that all source adapters must implement.
+ * Enables the plugin architecture for different note sources.
+ */
 export interface ISourceAdapter {
+  /** Unique identifier for this adapter */
   readonly name: string;
+
+  /** Initialize the adapter (called once on startup) */
   initialize(): Promise<void>;
+
+  /** Fetch all notes from the source */
   fetchAll(): Promise<Note[]>;
+
+  /** Start watching for changes and call the callback when notes change */
   watch(callback: WatchCallback): void;
+
+  /** Stop watching and clean up resources */
   stop(): void;
 }
 
+/**
+ * Registry for managing source adapters.
+ * Provides centralized control over all registered adapters.
+ */
 export class PluginRegistry {
   private adapters = new Map<string, ISourceAdapter>();
 
@@ -46,4 +70,5 @@ export class PluginRegistry {
   }
 }
 
+/** Global plugin registry instance */
 export const pluginRegistry = new PluginRegistry();
