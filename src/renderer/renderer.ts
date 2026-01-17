@@ -32,6 +32,7 @@ const apiKeyInput = document.getElementById('api-key-input') as HTMLInputElement
 const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
 const apiKeyClear = document.getElementById('api-key-clear') as HTMLButtonElement;
 const apiKeyStatus = document.getElementById('api-key-status') as HTMLDivElement;
+const searchStatus = document.getElementById('search-status') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -39,6 +40,8 @@ let results: SearchResult[] = [];
 let debounceTimer: number;
 let lastQuery = '';
 let loggedMissingApi = false;
+let aiRequestId = 0;
+let aiInFlight = false;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -59,8 +62,18 @@ function logError(message: string, error?: unknown): void {
   else console.error(`[Renderer] ${message}`, error);
 }
 
-function showStatus(message: string): void {
+function showEmptyState(message: string): void {
   resultsList.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+function setSearchStatus(message?: string): void {
+  if (!message) {
+    searchStatus.textContent = '';
+    searchStatus.dataset.state = 'idle';
+    return;
+  }
+  searchStatus.textContent = message;
+  searchStatus.dataset.state = 'busy';
 }
 
 window.addEventListener('error', event => {
@@ -106,7 +119,7 @@ if (apiBridge?.getGeminiKeyStatus) {
 
 // Event listeners
 searchInput.addEventListener('input', handleInput);
-searchInput.addEventListener('keydown', handleKeydown);
+window.addEventListener('keydown', handleKeydown);
 apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
@@ -161,14 +174,21 @@ function handleInput(): void {
       logError('window.api is missing (preload not loaded?)');
       loggedMissingApi = true;
     }
-    if (query.length >= 2) showStatus('Search API unavailable (preload failed)');
+    if (query.length >= 2) {
+      setSearchStatus('Search API unavailable (preload failed)');
+      if (results.length === 0) showEmptyState('Search API unavailable (preload failed)');
+    } else {
+      setSearchStatus();
+      clearResults();
+    }
     return;
   }
 
   // Immediate local search for responsiveness
   if (query.length >= 2 && query !== lastQuery) {
     const startedAt = performance.now();
-    showStatus('Searching...');
+    setSearchStatus('Searching...');
+    if (results.length === 0) showEmptyState('Searching...');
     log(`searchLocal start len=${query.length} "${formatQueryForLog(query)}"`);
     try {
       apiBridge
@@ -178,9 +198,8 @@ function handleInput(): void {
             `searchLocal done results=${localResults.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
           );
           if (searchInput.value.trim() === query) {
-            results = localResults;
-            renderResults();
-            if (results.length > 0) selectResult(0);
+            applyResults(localResults, true);
+            if (!aiInFlight) setSearchStatus();
           }
         })
         .catch((error: unknown) => logError('searchLocal error', error));
@@ -193,28 +212,41 @@ function handleInput(): void {
   debounceTimer = window.setTimeout(async () => {
     if (query.length < 2) {
       clearResults();
+      setSearchStatus();
+      aiInFlight = false;
+      aiRequestId = 0;
       return;
     }
     lastQuery = query;
     const startedAt = performance.now();
-    showStatus('Searching with AI...');
+    const requestId = ++aiRequestId;
+    aiInFlight = true;
+    setSearchStatus('Searching with AI...');
+    if (results.length === 0) showEmptyState('Searching with AI...');
     log(`search start len=${query.length} "${formatQueryForLog(query)}"`);
     try {
-      results = await apiBridge.search(query);
+      const aiResults = await apiBridge.search(query);
       log(
-        `search done results=${results.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
+        `search done results=${aiResults.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
       );
-      renderResults();
-      if (results.length > 0) selectResult(0);
+      if (requestId !== aiRequestId || searchInput.value.trim() !== query) return;
+      applyResults(aiResults, true);
+      setSearchStatus();
     } catch (error: unknown) {
       logError('search error', error);
-      showStatus('Search failed (see logs)');
+      if (requestId !== aiRequestId) return;
+      if (results.length === 0) showEmptyState('Search failed (see logs)');
+      setSearchStatus('AI search failed (see logs)');
+    } finally {
+      if (requestId === aiRequestId) aiInFlight = false;
     }
   }, 800);
 }
 
 /** Handle keyboard navigation */
 function handleKeydown(event: KeyboardEvent): void {
+  if (!shouldHandleKeydown(event)) return;
+
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault();
@@ -232,6 +264,18 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
+function shouldHandleKeydown(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  if (!target) return true;
+
+  if (target === apiKeyInput) return false;
+  if (target.tagName === 'TEXTAREA') return false;
+  if (target.tagName === 'INPUT' && target !== searchInput) return false;
+  if (target.isContentEditable) return false;
+
+  return true;
+}
+
 /** Clear search results */
 function clearResults(): void {
   resultsList.innerHTML = '';
@@ -239,6 +283,27 @@ function clearResults(): void {
   previewContent.textContent = '';
   results = [];
   selectedIndex = -1;
+}
+
+function applyResults(nextResults: SearchResult[], preserveSelection: boolean): void {
+  const selectedId = results[selectedIndex]?.id;
+  results = nextResults;
+
+  if (results.length === 0) {
+    selectedIndex = -1;
+    renderResults();
+    return;
+  }
+
+  let nextIndex = 0;
+  if (preserveSelection && selectedId) {
+    const foundIndex = results.findIndex(result => result.id === selectedId);
+    if (foundIndex >= 0) nextIndex = foundIndex;
+  }
+
+  selectedIndex = nextIndex;
+  renderResults();
+  selectResult(nextIndex);
 }
 
 /** Render search results list */
