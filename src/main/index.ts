@@ -10,6 +10,7 @@ import {
   globalShortcut,
   ipcMain,
   nativeImage,
+  dialog,
   Menu,
   shell
 } from 'electron';
@@ -22,6 +23,7 @@ config({ path: path.join(__dirname, '../../.env') });
 
 import { pluginRegistry } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
+import { LocalFilesAdapter } from '../adapters/local-files';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
 import { readUserConfig, writeUserConfig } from './user-config';
@@ -30,6 +32,7 @@ import { readUserConfig, writeUserConfig } from './user-config';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 const searchManager = new SearchManager();
+const localFilesAdapter = new LocalFilesAdapter();
 
 /** Create the main search window */
 function createWindow(): void {
@@ -160,6 +163,7 @@ async function syncNotes(): Promise<void> {
 async function initializeApp(): Promise<void> {
   // Register source adapters
   pluginRegistry.register(new AppleNotesAdapter());
+  pluginRegistry.register(localFilesAdapter);
   await pluginRegistry.initializeAll();
 
   // Set up change watchers
@@ -262,7 +266,59 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
+ipcMain.handle('local-get-config', () => {
+  const local = readUserConfig().local || {};
+  return {
+    folders: local.folders || [],
+    recursive: local.recursive ?? true
+  };
+});
+
+ipcMain.handle('local-select-folder', async () => {
+  if (!mainWindow) return { canceled: true };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+  return { canceled: false, path: result.filePaths[0] };
+});
+
+ipcMain.handle(
+  'local-set-config',
+  async (_event, config: { folders?: string[]; recursive?: boolean }) => {
+    const folders = (config.folders || [])
+      .map(folder => folder.trim())
+      .filter(folder => folder.length > 0 && fs.existsSync(folder) && fs.statSync(folder).isDirectory());
+    const uniqueFolders = Array.from(new Set(folders));
+    const recursive = config.recursive ?? true;
+
+    writeUserConfig({
+      local: {
+        folders: uniqueFolders,
+        recursive
+      }
+    });
+
+    localFilesAdapter.refreshWatchers();
+    await syncNotes();
+
+    return { ok: true, folders: uniqueFolders, recursive };
+  }
+);
+
+ipcMain.handle('local-sync-now', async () => {
+  await syncNotes();
+  return { ok: true };
+});
+
 ipcMain.on('open-note', (_event, noteId: string) => {
-  const sourceId = noteId.replace('apple-notes:', '');
-  shell.openExternal(`notes://showNote?identifier=${encodeURIComponent(sourceId)}`);
+  if (noteId.startsWith('apple-notes:')) {
+    const sourceId = noteId.replace('apple-notes:', '');
+    shell.openExternal(`notes://showNote?identifier=${encodeURIComponent(sourceId)}`);
+    return;
+  }
+  if (noteId.startsWith('local-file:')) {
+    const filePath = decodeURIComponent(noteId.replace('local-file:', ''));
+    shell.openPath(filePath);
+  }
 });

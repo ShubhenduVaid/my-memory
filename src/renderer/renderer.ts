@@ -17,8 +17,17 @@ interface RendererApi {
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getLocalConfig: () => Promise<LocalConfig>;
+  setLocalConfig: (config: LocalConfig) => Promise<{ ok: boolean; folders: string[]; recursive: boolean }>;
+  selectLocalFolder: () => Promise<{ canceled: boolean; path?: string }>;
+  syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
+}
+
+interface LocalConfig {
+  folders?: string[];
+  recursive?: boolean;
 }
 
 // DOM elements
@@ -33,6 +42,13 @@ const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
 const apiKeyClear = document.getElementById('api-key-clear') as HTMLButtonElement;
 const apiKeyStatus = document.getElementById('api-key-status') as HTMLDivElement;
 const searchStatus = document.getElementById('search-status') as HTMLDivElement;
+const localToggle = document.getElementById('local-toggle') as HTMLButtonElement;
+const localPanel = document.getElementById('local-panel') as HTMLDivElement;
+const localStatus = document.getElementById('local-status') as HTMLDivElement;
+const localAdd = document.getElementById('local-add') as HTMLButtonElement;
+const localSync = document.getElementById('local-sync') as HTMLButtonElement;
+const localRecursive = document.getElementById('local-recursive') as HTMLInputElement;
+const localFolders = document.getElementById('local-folders') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -42,6 +58,8 @@ let lastQuery = '';
 let loggedMissingApi = false;
 let aiRequestId = 0;
 let aiInFlight = false;
+let localFolderList: string[] = [];
+let localRecursiveEnabled = true;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -105,6 +123,80 @@ function toggleApiKeyPanel(force?: boolean): void {
   if (show) apiKeyInput.focus();
 }
 
+function toggleLocalPanel(force?: boolean): void {
+  const show = typeof force === 'boolean' ? force : !localPanel.classList.contains('is-open');
+  localPanel.classList.toggle('is-open', show);
+}
+
+function setLocalStatus(message: string): void {
+  localStatus.textContent = message;
+}
+
+function renderLocalFolders(): void {
+  if (localFolderList.length === 0) {
+    localFolders.innerHTML = '';
+    setLocalStatus('No folders selected');
+    localSync.disabled = true;
+    return;
+  }
+
+  setLocalStatus(`${localFolderList.length} folder${localFolderList.length === 1 ? '' : 's'} selected`);
+  localSync.disabled = false;
+  localFolders.innerHTML = localFolderList
+    .map(
+      folder => `
+        <div class="local-folder">
+          <div class="local-folder-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
+          <button class="local-remove" data-path="${encodeURIComponent(folder)}">Remove</button>
+        </div>
+      `
+    )
+    .join('');
+
+  localFolders.querySelectorAll<HTMLButtonElement>('.local-remove').forEach(button => {
+    button.addEventListener('click', () => {
+      const encoded = button.getAttribute('data-path') || '';
+      const decoded = decodeURIComponent(encoded);
+      localFolderList = localFolderList.filter(path => path !== decoded);
+      saveLocalConfig();
+    });
+  });
+}
+
+async function refreshLocalConfig(): Promise<void> {
+  if (!apiBridge?.getLocalConfig) {
+    setLocalStatus('Local folders unavailable');
+    return;
+  }
+  try {
+    const config = await apiBridge.getLocalConfig();
+    localFolderList = config.folders || [];
+    localRecursiveEnabled = config.recursive ?? true;
+    localRecursive.checked = localRecursiveEnabled;
+    renderLocalFolders();
+  } catch (error: unknown) {
+    logError('getLocalConfig failed', error);
+    setLocalStatus('Local folders unavailable');
+  }
+}
+
+async function saveLocalConfig(): Promise<void> {
+  if (!apiBridge?.setLocalConfig) return;
+  try {
+    const result = await apiBridge.setLocalConfig({
+      folders: localFolderList,
+      recursive: localRecursiveEnabled
+    });
+    localFolderList = result.folders;
+    localRecursiveEnabled = result.recursive;
+    localRecursive.checked = localRecursiveEnabled;
+    renderLocalFolders();
+  } catch (error: unknown) {
+    logError('setLocalConfig failed', error);
+    setLocalStatus('Failed to save folders');
+  }
+}
+
 if (apiBridge?.getGeminiKeyStatus) {
   apiBridge
     .getGeminiKeyStatus()
@@ -117,10 +209,13 @@ if (apiBridge?.getGeminiKeyStatus) {
   setApiKeyStatus(false, 'API unavailable');
 }
 
+refreshLocalConfig();
+
 // Event listeners
 searchInput.addEventListener('input', handleInput);
 window.addEventListener('keydown', handleKeydown);
 apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
+localToggle.addEventListener('click', () => toggleLocalPanel());
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
     setApiKeyStatus(false, 'API unavailable');
@@ -162,6 +257,35 @@ apiKeyClear.addEventListener('click', async () => {
 });
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
+});
+localAdd.addEventListener('click', async () => {
+  if (!apiBridge?.selectLocalFolder) {
+    setLocalStatus('Local folders unavailable');
+    return;
+  }
+  try {
+    const result = await apiBridge.selectLocalFolder();
+    if (result.canceled || !result.path) return;
+    if (!localFolderList.includes(result.path)) {
+      localFolderList = [...localFolderList, result.path];
+      await saveLocalConfig();
+    }
+  } catch (error: unknown) {
+    logError('selectLocalFolder failed', error);
+    setLocalStatus('Failed to add folder');
+  }
+});
+localSync.addEventListener('click', async () => {
+  if (!apiBridge?.syncLocalNow) return;
+  try {
+    await apiBridge.syncLocalNow();
+  } catch (error: unknown) {
+    logError('syncLocalNow failed', error);
+  }
+});
+localRecursive.addEventListener('change', () => {
+  localRecursiveEnabled = localRecursive.checked;
+  saveLocalConfig();
 });
 
 /** Handle search input with debouncing */

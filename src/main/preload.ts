@@ -20,6 +20,19 @@ contextBridge.exposeInMainWorld('api', {
   /** Set or clear the Gemini API key */
   setGeminiKey: (apiKey: string | null) => ipcRenderer.invoke('set-gemini-key', apiKey),
 
+  /** Get local file indexing config */
+  getLocalConfig: () => ipcRenderer.invoke('local-get-config'),
+
+  /** Update local file indexing config */
+  setLocalConfig: (config: { folders?: string[]; recursive?: boolean }) =>
+    ipcRenderer.invoke('local-set-config', config),
+
+  /** Select a local folder */
+  selectLocalFolder: () => ipcRenderer.invoke('local-select-folder'),
+
+  /** Trigger local sync */
+  syncLocalNow: () => ipcRenderer.invoke('local-sync-now'),
+
   /** Debug ping to verify IPC */
   ping: () => ipcRenderer.invoke('ping'),
 

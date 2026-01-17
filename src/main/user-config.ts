@@ -4,6 +4,12 @@ import { app } from 'electron';
 
 export interface UserConfig {
   geminiApiKey?: string;
+  local?: LocalConfig;
+}
+
+export interface LocalConfig {
+  folders?: string[];
+  recursive?: boolean;
 }
 
 const CONFIG_FILENAME = 'config.json';
@@ -24,8 +30,15 @@ export function readUserConfig(): UserConfig {
 
 export function writeUserConfig(update: UserConfig): void {
   const current = readUserConfig();
-  const next: UserConfig = { ...current, ...update };
+  const nextLocal =
+    update.local === undefined ? current.local : { ...(current.local || {}), ...(update.local || {}) };
+  const next: UserConfig = { ...current, ...update, local: nextLocal };
   if (!next.geminiApiKey) delete next.geminiApiKey;
+  if (next.local) {
+    if (!next.local.folders || next.local.folders.length === 0) delete next.local.folders;
+    if (next.local.recursive === undefined) delete next.local.recursive;
+    if (!next.local.folders && next.local.recursive === undefined) delete next.local;
+  }
 
   const configPath = getConfigPath();
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
