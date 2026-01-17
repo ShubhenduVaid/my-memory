@@ -28,7 +28,11 @@ body {
 #obsidian-toggle,
 #obsidian-add,
 #obsidian-sync,
-.obsidian-remove {
+.obsidian-remove,
+#local-toggle,
+#local-add,
+#local-sync,
+.local-remove {
   padding: 10px 12px;
   font-size: 12px;
   border: 1px solid rgba(255,255,255,0.2);
@@ -43,14 +47,22 @@ body {
 #obsidian-toggle:hover,
 #obsidian-add:hover,
 #obsidian-sync:hover,
-.obsidian-remove:hover { background: rgba(255,255,255,0.16); }
+.obsidian-remove:hover,
+#local-toggle:hover,
+#local-add:hover,
+#local-sync:hover,
+.local-remove:hover { background: rgba(255,255,255,0.16); }
 #api-key-toggle:disabled,
 #api-key-save:disabled,
 #api-key-clear:disabled,
 #obsidian-toggle:disabled,
 #obsidian-add:disabled,
 #obsidian-sync:disabled,
-.obsidian-remove:disabled { opacity: 0.6; cursor: default; }
+.obsidian-remove:disabled,
+#local-toggle:disabled,
+#local-add:disabled,
+#local-sync:disabled,
+.local-remove:disabled { opacity: 0.6; cursor: default; }
 #search::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-panel {
   margin-top: 10px;
@@ -74,17 +86,23 @@ body {
 #api-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
-#obsidian-panel {
+#obsidian-panel,
+#local-panel {
   margin-top: 10px;
   display: none;
   flex-direction: column;
   gap: 8px;
 }
-#obsidian-panel.is-open { display: flex; }
+#obsidian-panel.is-open,
+#local-panel.is-open { display: flex; }
 .panel-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-#obsidian-status { font-size: 11px; color: rgba(255,255,255,0.7); }
-#obsidian-vaults { display: flex; flex-direction: column; gap: 6px; }
-.obsidian-vault {
+.panel-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+#obsidian-status,
+#local-status { font-size: 11px; color: rgba(255,255,255,0.7); }
+#obsidian-vaults,
+#local-folders { display: flex; flex-direction: column; gap: 6px; }
+.obsidian-vault,
+.local-folder {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -93,7 +111,8 @@ body {
   border-radius: 6px;
   background: rgba(255,255,255,0.04);
 }
-.obsidian-vault-path {
+.obsidian-vault-path,
+.local-folder-path {
   flex: 1;
   min-width: 0;
   font-size: 11px;

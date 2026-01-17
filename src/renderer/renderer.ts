@@ -21,12 +21,21 @@ interface RendererApi {
   setObsidianConfig: (config: ObsidianConfig) => Promise<{ ok: boolean; vaults: string[] }>;
   selectObsidianVault: () => Promise<{ canceled: boolean; path?: string }>;
   syncObsidianNow: () => Promise<{ ok: boolean }>;
+  getLocalConfig: () => Promise<LocalConfig>;
+  setLocalConfig: (config: LocalConfig) => Promise<{ ok: boolean; folders: string[]; recursive: boolean }>;
+  selectLocalFolder: () => Promise<{ canceled: boolean; path?: string }>;
+  syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
 }
 
 interface ObsidianConfig {
   vaults?: string[];
+}
+
+interface LocalConfig {
+  folders?: string[];
+  recursive?: boolean;
 }
 
 // DOM elements
@@ -47,6 +56,13 @@ const obsidianStatus = document.getElementById('obsidian-status') as HTMLDivElem
 const obsidianAdd = document.getElementById('obsidian-add') as HTMLButtonElement;
 const obsidianSync = document.getElementById('obsidian-sync') as HTMLButtonElement;
 const obsidianVaults = document.getElementById('obsidian-vaults') as HTMLDivElement;
+const localToggle = document.getElementById('local-toggle') as HTMLButtonElement;
+const localPanel = document.getElementById('local-panel') as HTMLDivElement;
+const localStatus = document.getElementById('local-status') as HTMLDivElement;
+const localAdd = document.getElementById('local-add') as HTMLButtonElement;
+const localSync = document.getElementById('local-sync') as HTMLButtonElement;
+const localRecursive = document.getElementById('local-recursive') as HTMLInputElement;
+const localFolders = document.getElementById('local-folders') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -57,6 +73,8 @@ let loggedMissingApi = false;
 let aiRequestId = 0;
 let aiInFlight = false;
 let obsidianVaultList: string[] = [];
+let localFolderList: string[] = [];
+let localRecursiveEnabled = true;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -160,6 +178,46 @@ function renderObsidianVaults(): void {
   });
 }
 
+function toggleLocalPanel(force?: boolean): void {
+  const show = typeof force === 'boolean' ? force : !localPanel.classList.contains('is-open');
+  localPanel.classList.toggle('is-open', show);
+}
+
+function setLocalStatus(message: string): void {
+  localStatus.textContent = message;
+}
+
+function renderLocalFolders(): void {
+  if (localFolderList.length === 0) {
+    localFolders.innerHTML = '';
+    setLocalStatus('No folders selected');
+    localSync.disabled = true;
+    return;
+  }
+
+  setLocalStatus(`${localFolderList.length} folder${localFolderList.length === 1 ? '' : 's'} selected`);
+  localSync.disabled = false;
+  localFolders.innerHTML = localFolderList
+    .map(
+      folder => `
+        <div class="local-folder">
+          <div class="local-folder-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
+          <button class="local-remove" data-path="${encodeURIComponent(folder)}">Remove</button>
+        </div>
+      `
+    )
+    .join('');
+
+  localFolders.querySelectorAll<HTMLButtonElement>('.local-remove').forEach(button => {
+    button.addEventListener('click', () => {
+      const encoded = button.getAttribute('data-path') || '';
+      const decoded = decodeURIComponent(encoded);
+      localFolderList = localFolderList.filter(path => path !== decoded);
+      saveLocalConfig();
+    });
+  });
+}
+
 async function refreshObsidianConfig(): Promise<void> {
   if (!apiBridge?.getObsidianConfig) {
     setObsidianStatus('Obsidian unavailable');
@@ -192,6 +250,40 @@ async function saveObsidianConfig(): Promise<void> {
   }
 }
 
+async function refreshLocalConfig(): Promise<void> {
+  if (!apiBridge?.getLocalConfig) {
+    setLocalStatus('Local folders unavailable');
+    return;
+  }
+  try {
+    const config = await apiBridge.getLocalConfig();
+    localFolderList = config.folders || [];
+    localRecursiveEnabled = config.recursive ?? true;
+    localRecursive.checked = localRecursiveEnabled;
+    renderLocalFolders();
+  } catch (error: unknown) {
+    logError('getLocalConfig failed', error);
+    setLocalStatus('Local folders unavailable');
+  }
+}
+
+async function saveLocalConfig(): Promise<void> {
+  if (!apiBridge?.setLocalConfig) return;
+  try {
+    const result = await apiBridge.setLocalConfig({
+      folders: localFolderList,
+      recursive: localRecursiveEnabled
+    });
+    localFolderList = result.folders;
+    localRecursiveEnabled = result.recursive;
+    localRecursive.checked = localRecursiveEnabled;
+    renderLocalFolders();
+  } catch (error: unknown) {
+    logError('setLocalConfig failed', error);
+    setLocalStatus('Failed to save folders');
+  }
+}
+
 if (apiBridge?.getGeminiKeyStatus) {
   apiBridge
     .getGeminiKeyStatus()
@@ -205,12 +297,14 @@ if (apiBridge?.getGeminiKeyStatus) {
 }
 
 refreshObsidianConfig();
+refreshLocalConfig();
 
 // Event listeners
 searchInput.addEventListener('input', handleInput);
 window.addEventListener('keydown', handleKeydown);
 apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
 obsidianToggle.addEventListener('click', () => toggleObsidianPanel());
+localToggle.addEventListener('click', () => toggleLocalPanel());
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
     setApiKeyStatus(false, 'API unavailable');
@@ -277,6 +371,35 @@ obsidianSync.addEventListener('click', async () => {
   } catch (error: unknown) {
     logError('syncObsidianNow failed', error);
   }
+});
+localAdd.addEventListener('click', async () => {
+  if (!apiBridge?.selectLocalFolder) {
+    setLocalStatus('Local folders unavailable');
+    return;
+  }
+  try {
+    const result = await apiBridge.selectLocalFolder();
+    if (result.canceled || !result.path) return;
+    if (!localFolderList.includes(result.path)) {
+      localFolderList = [...localFolderList, result.path];
+      await saveLocalConfig();
+    }
+  } catch (error: unknown) {
+    logError('selectLocalFolder failed', error);
+    setLocalStatus('Failed to add folder');
+  }
+});
+localSync.addEventListener('click', async () => {
+  if (!apiBridge?.syncLocalNow) return;
+  try {
+    await apiBridge.syncLocalNow();
+  } catch (error: unknown) {
+    logError('syncLocalNow failed', error);
+  }
+});
+localRecursive.addEventListener('change', () => {
+  localRecursiveEnabled = localRecursive.checked;
+  saveLocalConfig();
 });
 
 /** Handle search input with debouncing */

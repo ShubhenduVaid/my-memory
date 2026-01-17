@@ -9,6 +9,7 @@ Intelligent semantic search across your notes using AI.
 - **AI Answers** - Get intelligent summaries from your notes
 - **Apple Notes Integration** - Real-time sync with your Notes app
 - **Obsidian Integration** - Search across your vaults
+- **Local Files Integration** - Search markdown, text, and PDFs from folders
 - **Menu Bar App** - Lives in your menu bar, always accessible
 - **Plugin Architecture** - Extensible for future integrations (Notion, Teams, etc.)
 
@@ -25,6 +26,7 @@ npm install
 ```
 
 Create `.env` file with your Gemini API key:
+
 ```
 GEMINI_API_KEY=your_key_here
 ```
@@ -47,8 +49,22 @@ npm run start
 3. Use **Sync now** to rescan immediately.
 
 Notes:
+
 - Only markdown files are indexed (`.md`, `.markdown`).
 - Files larger than 2 MB are skipped.
+
+## Local Folders
+
+1. Click **Local** in the search bar.
+2. Add one or more folders to index.
+3. Toggle **Include subfolders** as needed.
+4. Use **Sync now** to rescan immediately.
+
+Supported file types: `.md`, `.markdown`, `.txt`, `.pdf`
+
+Notes:
+
+- Text files larger than 2 MB and PDFs larger than 10 MB are skipped.
 - File content is truncated to the first ~20k characters to keep search fast.
 
 ## Architecture
@@ -63,7 +79,8 @@ src/
 │   └── search-manager.ts # AI search with Gemini
 └── adapters/       # Source adapters
     ├── apple-notes.ts
-    └── obsidian.ts
+    ├── obsidian.ts
+    └── local-files.ts
 ```
 
 ## Adding New Integrations

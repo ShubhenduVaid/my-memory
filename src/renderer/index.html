@@ -13,6 +13,7 @@
         <input type="text" id="search" placeholder="Search your notes..." autofocus>
         <button id="api-key-toggle" type="button" title="Set Gemini API Key">AI Key</button>
         <button id="obsidian-toggle" type="button" title="Connect Obsidian vaults">Obsidian</button>
+        <button id="local-toggle" type="button" title="Index local folders">Local</button>
       </div>
       <div id="api-key-panel">
         <input type="password" id="api-key-input" placeholder="Paste your Gemini API key" autocomplete="off">
@@ -27,6 +28,18 @@
           <button id="obsidian-sync" type="button">Sync now</button>
         </div>
         <div id="obsidian-vaults"></div>
+      </div>
+      <div id="local-panel">
+        <div class="panel-row">
+          <div id="local-status">No folders selected</div>
+          <button id="local-add" type="button">Add folder</button>
+          <button id="local-sync" type="button">Sync now</button>
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="local-recursive">Include subfolders</label>
+          <input id="local-recursive" type="checkbox" checked>
+        </div>
+        <div id="local-folders"></div>
       </div>
       <div id="search-status" data-state="idle"></div>
     </div>
