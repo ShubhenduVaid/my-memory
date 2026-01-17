@@ -122,32 +122,54 @@ export class SearchManager {
     return this.smartSearch(query, notes);
   }
 
-  /** Try to generate an AI answer, with retry on rate limit */
+  /** Try to generate an AI answer, falling back across models on errors */
   private async tryGenerateAnswer(query: string, matches: SearchResult[]): Promise<string | null> {
-    const modelEntry = this.getNextModel();
-    if (!modelEntry) return null;
+    if (this.models.length === 0) return null;
 
-    try {
-      return await this.generateAnswer(query, matches, modelEntry.model);
-    } catch (error: unknown) {
-      if (this.isRateLimitError(error)) {
-        console.log('[Search] Rate limited, retrying...');
-        const nextEntry = this.getNextModel();
-        if (nextEntry) {
-          try {
-            return await this.generateAnswer(query, matches, nextEntry.model);
-          } catch {
-            console.error('[Search] Retry failed');
-          }
-        }
+    const attempts = this.models.length;
+    for (let i = 0; i < attempts; i++) {
+      const modelEntry = this.getNextModel();
+      if (!modelEntry) break;
+      try {
+        const answer = await this.generateAnswer(query, matches, modelEntry.model);
+        if (answer) return answer;
+        console.warn(`[Search] Gemini returned empty response for ${modelEntry.name}`);
+      } catch (error: unknown) {
+        console.error(
+          `[Search] Gemini error on ${modelEntry.name}: ${this.formatGeminiError(error)}`,
+          error
+        );
       }
-      return null;
     }
+
+    console.warn('[Search] All Gemini models failed; AI answer unavailable');
+    return null;
   }
 
-  /** Check if error is a rate limit error */
-  private isRateLimitError(error: unknown): boolean {
-    return typeof error === 'object' && error !== null && 'status' in error && error.status === 429;
+  private formatGeminiError(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    if (typeof error === 'object' && error !== null) {
+      const err = error as Record<string, unknown>;
+      const parts: string[] = [];
+      if (typeof err.status === 'number') parts.push(`status=${err.status}`);
+      if (typeof err.message === 'string') parts.push(err.message);
+      if (typeof err.errorDetails === 'string') parts.push(err.errorDetails);
+      if (typeof err.errorDetails === 'object' && err.errorDetails !== null) {
+        try {
+          parts.push(JSON.stringify(err.errorDetails));
+        } catch {
+          // ignore
+        }
+      }
+      if (parts.length > 0) return parts.join(' ');
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return '[object error]';
+      }
+    }
+    return 'Unknown error';
   }
 
   /** Create an AI answer search result */
@@ -170,17 +192,37 @@ export class SearchManager {
   ): Promise<string | null> {
     const context = notes
       .slice(0, 5)
-      .map(n => `Note: "${n.title}" (${n.folder})\n${n.content?.slice(0, 500) || n.snippet}`)
+      .map((note, index) => {
+        const title = note.title || 'Untitled';
+        const folder = note.folder || 'Unknown folder';
+        const content = (note.content || note.snippet || '').replace(/\s+/g, ' ').trim();
+        const excerpt = content.length > 800 ? content.slice(0, 800) + '...' : content;
+        return [
+          `Note ${index + 1}`,
+          `Title: ${title}`,
+          `Folder: ${folder}`,
+          `Content: ${excerpt}`
+        ].join('\n');
+      })
       .join('\n\n---\n\n');
 
-    const prompt = `Based on these notes, answer the question concisely.
+    const prompt = `You are a helpful assistant that answers using ONLY the notes provided.
+Do not use outside knowledge. If the notes do not contain the answer, say so.
+If the question is ambiguous, ask one short clarifying question instead of guessing.
+Prefer specific details from the notes (names, dates, decisions, numbers).
+If the question asks for a summary, provide a concise synthesis across relevant notes.
+
+Output format:
+1) A short direct answer (1-3 sentences).
+2) A single bullet list of 2-6 key points (each bullet on its own line starting with "- ").
+3) A final line: "Sources: title1; title2; title3" (include only notes you used; use "Sources: none" if no relevant info).
 
 Notes:
 ${context}
 
 Question: ${query}
 
-Answer based only on the notes above. If the notes don't contain relevant info, say so.`;
+Answer now.`;
 
     const result = await model.generateContent(prompt);
     return result.response.text();

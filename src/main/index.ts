@@ -28,7 +28,7 @@ import { SearchManager } from '../core/search-manager';
 // Application state
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let searchManager: SearchManager | null = null;
+const searchManager = new SearchManager();
 
 /** Create the main search window */
 function createWindow(): void {
@@ -180,7 +180,6 @@ async function initializeApp(): Promise<void> {
   }
 
   // Initialize search
-  searchManager = new SearchManager();
   await searchManager.initialize();
 }
 
@@ -195,7 +194,7 @@ app.whenReady().then(async () => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   pluginRegistry.stopAll();
-  searchManager?.stop();
+  searchManager.stop();
 });
 
 app.on('window-all-closed', (event: Event) => event.preventDefault());
@@ -213,11 +212,6 @@ ipcMain.handle('search', async (_event, query: string) => {
   const { preview, length } = formatQueryForLog(query);
   console.log(`[IPC] search start len=${length} "${preview}"`);
 
-  if (!searchManager) {
-    console.log('[IPC] search skipped - SearchManager not initialized');
-    return [];
-  }
-
   try {
     const results = await searchManager.search(query);
     console.log(
@@ -234,10 +228,6 @@ ipcMain.handle('search-local', async (_event, query: string) => {
   const startedAt = Date.now();
   const { preview, length } = formatQueryForLog(query);
 
-  if (!searchManager) {
-    console.log('[IPC] search-local skipped - SearchManager not initialized');
-    return [];
-  }
   console.log(`[IPC] search-local start len=${length} "${preview}"`);
 
   try {
