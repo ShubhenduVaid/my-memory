@@ -8,6 +8,7 @@ Intelligent semantic search across your notes using AI.
 - **Semantic Search** - Find notes by meaning, not just keywords
 - **AI Answers** - Get intelligent summaries from your notes
 - **Apple Notes Integration** - Real-time sync with your Notes app
+- **Local Files Integration** - Search markdown, text, and PDFs from folders
 - **Menu Bar App** - Lives in your menu bar, always accessible
 - **Plugin Architecture** - Extensible for future integrations (Notion, Teams, etc.)
 
@@ -39,6 +40,19 @@ npm run start
 3. Use arrow keys to navigate, Enter to open note
 4. Click outside or press Escape to close
 
+## Local Folders
+
+1. Click **Local** in the search bar.
+2. Add one or more folders to index.
+3. Toggle **Include subfolders** as needed.
+4. Use **Sync now** to rescan immediately.
+
+Supported file types: `.md`, `.markdown`, `.txt`, `.pdf`
+
+Notes:
+- Text files larger than 2 MB and PDFs larger than 10 MB are skipped.
+- File content is truncated to the first ~20k characters to keep search fast.
+
 ## Architecture
 
 ```
@@ -50,7 +64,8 @@ src/
 │   ├── cache.ts    # SQLite cache
 │   └── search-manager.ts # AI search with Gemini
 └── adapters/       # Source adapters
-    └── apple-notes.ts
+    ├── apple-notes.ts
+    └── local-files.ts
 ```
 
 ## Adding New Integrations
