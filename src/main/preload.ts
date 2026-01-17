@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('api', {
   /** Search locally without AI (for real-time feedback) */
   searchLocal: (query: string) => ipcRenderer.invoke('search-local', query),
 
+  /** Check whether a Gemini API key is configured */
+  getGeminiKeyStatus: () => ipcRenderer.invoke('get-gemini-key-status'),
+
+  /** Set or clear the Gemini API key */
+  setGeminiKey: (apiKey: string | null) => ipcRenderer.invoke('set-gemini-key', apiKey),
+
   /** Debug ping to verify IPC */
   ping: () => ipcRenderer.invoke('ping'),
 

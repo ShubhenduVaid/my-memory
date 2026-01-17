@@ -24,6 +24,7 @@ import { pluginRegistry } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
+import { readUserConfig, writeUserConfig } from './user-config';
 
 // Application state
 let mainWindow: BrowserWindow | null = null;
@@ -180,7 +181,8 @@ async function initializeApp(): Promise<void> {
   }
 
   // Initialize search
-  await searchManager.initialize();
+  const { geminiApiKey } = readUserConfig();
+  await searchManager.initialize(geminiApiKey);
 }
 
 // Application lifecycle
@@ -245,6 +247,19 @@ ipcMain.handle('search-local', async (_event, query: string) => {
 ipcMain.handle('ping', () => {
   console.log('[IPC] ping');
   return 'pong';
+});
+
+ipcMain.handle('get-gemini-key-status', () => {
+  const { geminiApiKey } = readUserConfig();
+  return { hasKey: Boolean(geminiApiKey) };
+});
+
+ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefined) => {
+  const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
+  const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
+  writeUserConfig({ geminiApiKey });
+  await searchManager.initialize(geminiApiKey);
+  return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
 ipcMain.on('open-note', (_event, noteId: string) => {

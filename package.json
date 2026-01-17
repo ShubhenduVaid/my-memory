@@ -42,7 +42,7 @@
     ],
     "files": [
       "dist/**/*",
-      ".env",
+      "!**/.env",
       "!dist/mac-*",
       "!dist/*.dmg",
       "!dist/*.blockmap",

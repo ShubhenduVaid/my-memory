@@ -49,6 +49,7 @@ export class SearchManager {
   private models: ModelEntry[] = [];
   private modelIndex = 0;
   private loggedEmptyCache = false;
+  private apiKey: string | null = null;
 
   private formatQueryForLog(query: string): string {
     const normalized = query.replace(/\s+/g, ' ').trim();
@@ -63,14 +64,18 @@ export class SearchManager {
   }
 
   /** Initialize the search manager with Gemini models */
-  async initialize(): Promise<void> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+  async initialize(apiKey?: string | null): Promise<void> {
+    const resolvedKey = (apiKey ?? this.apiKey ?? process.env.GEMINI_API_KEY)?.trim();
+    this.apiKey = resolvedKey || null;
+    this.models = [];
+    this.modelIndex = 0;
+
+    if (!this.apiKey) {
       console.log('[SearchManager] No GEMINI_API_KEY - AI answers disabled');
       return;
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(this.apiKey);
     this.models = GEMINI_MODELS.map(name => ({
       name,
       model: genAI.getGenerativeModel({ model: name })
