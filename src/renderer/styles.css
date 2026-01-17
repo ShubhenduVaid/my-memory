@@ -62,6 +62,13 @@ body {
 #api-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
+#search-status {
+  margin-top: 8px;
+  min-height: 14px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+}
+#search-status[data-state="idle"] { visibility: hidden; }
 #content { display: flex; flex: 1; overflow: hidden; }
 #results-list {
   width: 280px;
