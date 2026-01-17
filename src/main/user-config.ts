@@ -4,6 +4,11 @@ import { app } from 'electron';
 
 export interface UserConfig {
   geminiApiKey?: string;
+  obsidian?: ObsidianConfig;
+}
+
+export interface ObsidianConfig {
+  vaults?: string[];
 }
 
 const CONFIG_FILENAME = 'config.json';
@@ -24,8 +29,16 @@ export function readUserConfig(): UserConfig {
 
 export function writeUserConfig(update: UserConfig): void {
   const current = readUserConfig();
-  const next: UserConfig = { ...current, ...update };
+  const nextObsidian =
+    update.obsidian === undefined
+      ? current.obsidian
+      : { ...(current.obsidian || {}), ...(update.obsidian || {}) };
+  const next: UserConfig = { ...current, ...update, obsidian: nextObsidian };
   if (!next.geminiApiKey) delete next.geminiApiKey;
+  if (next.obsidian) {
+    if (!next.obsidian.vaults || next.obsidian.vaults.length === 0) delete next.obsidian.vaults;
+    if (!next.obsidian.vaults) delete next.obsidian;
+  }
 
   const configPath = getConfigPath();
   fs.mkdirSync(path.dirname(configPath), { recursive: true });

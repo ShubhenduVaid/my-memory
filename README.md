@@ -8,6 +8,7 @@ Intelligent semantic search across your notes using AI.
 - **Semantic Search** - Find notes by meaning, not just keywords
 - **AI Answers** - Get intelligent summaries from your notes
 - **Apple Notes Integration** - Real-time sync with your Notes app
+- **Obsidian Integration** - Search across your vaults
 - **Menu Bar App** - Lives in your menu bar, always accessible
 - **Plugin Architecture** - Extensible for future integrations (Notion, Teams, etc.)
 
@@ -39,6 +40,17 @@ npm run start
 3. Use arrow keys to navigate, Enter to open note
 4. Click outside or press Escape to close
 
+## Obsidian Vaults
+
+1. Click **Obsidian** in the search bar.
+2. Add one or more vault folders.
+3. Use **Sync now** to rescan immediately.
+
+Notes:
+- Only markdown files are indexed (`.md`, `.markdown`).
+- Files larger than 2 MB are skipped.
+- File content is truncated to the first ~20k characters to keep search fast.
+
 ## Architecture
 
 ```
@@ -50,7 +62,8 @@ src/
 │   ├── cache.ts    # SQLite cache
 │   └── search-manager.ts # AI search with Gemini
 └── adapters/       # Source adapters
-    └── apple-notes.ts
+    ├── apple-notes.ts
+    └── obsidian.ts
 ```
 
 ## Adding New Integrations

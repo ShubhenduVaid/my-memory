@@ -20,6 +20,18 @@ contextBridge.exposeInMainWorld('api', {
   /** Set or clear the Gemini API key */
   setGeminiKey: (apiKey: string | null) => ipcRenderer.invoke('set-gemini-key', apiKey),
 
+  /** Get Obsidian vault config */
+  getObsidianConfig: () => ipcRenderer.invoke('obsidian-get-config'),
+
+  /** Update Obsidian vault config */
+  setObsidianConfig: (config: { vaults?: string[] }) => ipcRenderer.invoke('obsidian-set-config', config),
+
+  /** Select an Obsidian vault */
+  selectObsidianVault: () => ipcRenderer.invoke('obsidian-select-vault'),
+
+  /** Trigger Obsidian sync */
+  syncObsidianNow: () => ipcRenderer.invoke('obsidian-sync-now'),
+
   /** Debug ping to verify IPC */
   ping: () => ipcRenderer.invoke('ping'),
 
