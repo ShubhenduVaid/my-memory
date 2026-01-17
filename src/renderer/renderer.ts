@@ -15,6 +15,8 @@ interface SearchResult {
 interface RendererApi {
   search: (query: string) => Promise<SearchResult[]>;
   searchLocal: (query: string) => Promise<SearchResult[]>;
+  getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
+  setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
 }
@@ -24,6 +26,12 @@ const searchInput = document.getElementById('search') as HTMLInputElement;
 const resultsList = document.getElementById('results-list') as HTMLDivElement;
 const previewTitle = document.getElementById('preview-title') as HTMLDivElement;
 const previewContent = document.getElementById('preview-content') as HTMLDivElement;
+const apiKeyToggle = document.getElementById('api-key-toggle') as HTMLButtonElement;
+const apiKeyPanel = document.getElementById('api-key-panel') as HTMLDivElement;
+const apiKeyInput = document.getElementById('api-key-input') as HTMLInputElement;
+const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
+const apiKeyClear = document.getElementById('api-key-clear') as HTMLButtonElement;
+const apiKeyStatus = document.getElementById('api-key-status') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -72,9 +80,76 @@ if (pingPromise) {
   log('ping unavailable');
 }
 
+function setApiKeyStatus(hasKey: boolean, message?: string): void {
+  const base = hasKey ? 'AI key saved' : 'AI key not set';
+  apiKeyStatus.textContent = message ? `${base} - ${message}` : base;
+  apiKeyStatus.dataset.state = hasKey ? 'set' : 'unset';
+}
+
+function toggleApiKeyPanel(force?: boolean): void {
+  const show = typeof force === 'boolean' ? force : !apiKeyPanel.classList.contains('is-open');
+  apiKeyPanel.classList.toggle('is-open', show);
+  if (show) apiKeyInput.focus();
+}
+
+if (apiBridge?.getGeminiKeyStatus) {
+  apiBridge
+    .getGeminiKeyStatus()
+    .then(({ hasKey }) => setApiKeyStatus(hasKey))
+    .catch(error => {
+      setApiKeyStatus(false, 'status unavailable');
+      logError('getGeminiKeyStatus failed', error);
+    });
+} else {
+  setApiKeyStatus(false, 'API unavailable');
+}
+
 // Event listeners
 searchInput.addEventListener('input', handleInput);
 searchInput.addEventListener('keydown', handleKeydown);
+apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
+apiKeySave.addEventListener('click', async () => {
+  if (!apiBridge?.setGeminiKey) {
+    setApiKeyStatus(false, 'API unavailable');
+    return;
+  }
+  const key = apiKeyInput.value.trim();
+  if (!key) {
+    setApiKeyStatus(false, 'enter a key to save');
+    return;
+  }
+  apiKeySave.disabled = true;
+  try {
+    const result = await apiBridge.setGeminiKey(key);
+    setApiKeyStatus(result.hasKey, 'saved');
+    apiKeyInput.value = '';
+  } catch (error: unknown) {
+    logError('setGeminiKey failed', error);
+    setApiKeyStatus(false, 'save failed');
+  } finally {
+    apiKeySave.disabled = false;
+  }
+});
+apiKeyClear.addEventListener('click', async () => {
+  if (!apiBridge?.setGeminiKey) {
+    setApiKeyStatus(false, 'API unavailable');
+    return;
+  }
+  apiKeyClear.disabled = true;
+  try {
+    const result = await apiBridge.setGeminiKey(null);
+    setApiKeyStatus(result.hasKey, 'cleared');
+    apiKeyInput.value = '';
+  } catch (error: unknown) {
+    logError('clearGeminiKey failed', error);
+    setApiKeyStatus(false, 'clear failed');
+  } finally {
+    apiKeyClear.disabled = false;
+  }
+});
+apiKeyInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') apiKeySave.click();
+});
 
 /** Handle search input with debouncing */
 function handleInput(): void {

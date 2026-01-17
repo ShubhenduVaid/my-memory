@@ -9,7 +9,16 @@
 <body>
   <div id="app">
     <div id="search-bar">
-      <input type="text" id="search" placeholder="Search your notes..." autofocus>
+      <div id="search-row">
+        <input type="text" id="search" placeholder="Search your notes..." autofocus>
+        <button id="api-key-toggle" type="button" title="Set Gemini API Key">AI Key</button>
+      </div>
+      <div id="api-key-panel">
+        <input type="password" id="api-key-input" placeholder="Paste your Gemini API key" autocomplete="off">
+        <button id="api-key-save" type="button">Save</button>
+        <button id="api-key-clear" type="button">Clear</button>
+        <div id="api-key-status"></div>
+      </div>
     </div>
     <div id="content">
       <div id="results-list"></div>
