@@ -23,6 +23,7 @@ config({ path: path.join(__dirname, '../../.env') });
 
 import { pluginRegistry } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
+import { ObsidianAdapter } from '../adapters/obsidian';
 import { LocalFilesAdapter } from '../adapters/local-files';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
@@ -32,6 +33,7 @@ import { readUserConfig, writeUserConfig } from './user-config';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 const searchManager = new SearchManager();
+const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
 
 /** Create the main search window */
@@ -163,6 +165,7 @@ async function syncNotes(): Promise<void> {
 async function initializeApp(): Promise<void> {
   // Register source adapters
   pluginRegistry.register(new AppleNotesAdapter());
+  pluginRegistry.register(obsidianAdapter);
   pluginRegistry.register(localFilesAdapter);
   await pluginRegistry.initializeAll();
 
@@ -266,6 +269,38 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
+ipcMain.handle('obsidian-get-config', () => {
+  const obsidian = readUserConfig().obsidian || {};
+  return { vaults: obsidian.vaults || [] };
+});
+
+ipcMain.handle('obsidian-select-vault', async () => {
+  if (!mainWindow) return { canceled: true };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+  return { canceled: false, path: result.filePaths[0] };
+});
+
+ipcMain.handle('obsidian-set-config', async (_event, config: { vaults?: string[] }) => {
+  const vaults = (config.vaults || [])
+    .map(vault => vault.trim())
+    .filter(vault => vault.length > 0 && fs.existsSync(vault) && fs.statSync(vault).isDirectory());
+  const uniqueVaults = Array.from(new Set(vaults));
+
+  writeUserConfig({ obsidian: { vaults: uniqueVaults } });
+  obsidianAdapter.refreshWatchers();
+  await syncNotes();
+
+  return { ok: true, vaults: uniqueVaults };
+});
+
+ipcMain.handle('obsidian-sync-now', async () => {
+  await syncNotes();
+  return { ok: true };
+});
+
 ipcMain.handle('local-get-config', () => {
   const local = readUserConfig().local || {};
   return {
@@ -315,6 +350,12 @@ ipcMain.on('open-note', (_event, noteId: string) => {
   if (noteId.startsWith('apple-notes:')) {
     const sourceId = noteId.replace('apple-notes:', '');
     shell.openExternal(`notes://showNote?identifier=${encodeURIComponent(sourceId)}`);
+    return;
+  }
+  if (noteId.startsWith('obsidian:')) {
+    const filePath = decodeURIComponent(noteId.replace('obsidian:', ''));
+    const url = `obsidian://open?path=${encodeURIComponent(filePath)}`;
+    void shell.openExternal(url).catch(() => shell.openPath(filePath));
     return;
   }
   if (noteId.startsWith('local-file:')) {

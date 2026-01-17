@@ -12,6 +12,7 @@
       <div id="search-row">
         <input type="text" id="search" placeholder="Search your notes..." autofocus>
         <button id="api-key-toggle" type="button" title="Set Gemini API Key">AI Key</button>
+        <button id="obsidian-toggle" type="button" title="Connect Obsidian vaults">Obsidian</button>
         <button id="local-toggle" type="button" title="Index local folders">Local</button>
       </div>
       <div id="api-key-panel">
@@ -19,6 +20,14 @@
         <button id="api-key-save" type="button">Save</button>
         <button id="api-key-clear" type="button">Clear</button>
         <div id="api-key-status"></div>
+      </div>
+      <div id="obsidian-panel">
+        <div class="panel-row">
+          <div id="obsidian-status">No vaults selected</div>
+          <button id="obsidian-add" type="button">Add vault</button>
+          <button id="obsidian-sync" type="button">Sync now</button>
+        </div>
+        <div id="obsidian-vaults"></div>
       </div>
       <div id="local-panel">
         <div class="panel-row">

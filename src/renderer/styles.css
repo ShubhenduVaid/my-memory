@@ -25,6 +25,10 @@ body {
 #api-key-toggle,
 #api-key-save,
 #api-key-clear,
+#obsidian-toggle,
+#obsidian-add,
+#obsidian-sync,
+.obsidian-remove,
 #local-toggle,
 #local-add,
 #local-sync,
@@ -40,6 +44,10 @@ body {
 #api-key-toggle:hover,
 #api-key-save:hover,
 #api-key-clear:hover,
+#obsidian-toggle:hover,
+#obsidian-add:hover,
+#obsidian-sync:hover,
+.obsidian-remove:hover,
 #local-toggle:hover,
 #local-add:hover,
 #local-sync:hover,
@@ -47,6 +55,10 @@ body {
 #api-key-toggle:disabled,
 #api-key-save:disabled,
 #api-key-clear:disabled,
+#obsidian-toggle:disabled,
+#obsidian-add:disabled,
+#obsidian-sync:disabled,
+.obsidian-remove:disabled,
 #local-toggle:disabled,
 #local-add:disabled,
 #local-sync:disabled,
@@ -74,17 +86,22 @@ body {
 #api-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
+#obsidian-panel,
 #local-panel {
   margin-top: 10px;
   display: none;
   flex-direction: column;
   gap: 8px;
 }
+#obsidian-panel.is-open,
 #local-panel.is-open { display: flex; }
 .panel-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .panel-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+#obsidian-status,
 #local-status { font-size: 11px; color: rgba(255,255,255,0.7); }
+#obsidian-vaults,
 #local-folders { display: flex; flex-direction: column; gap: 6px; }
+.obsidian-vault,
 .local-folder {
   display: flex;
   align-items: center;
@@ -94,6 +111,7 @@ body {
   border-radius: 6px;
   background: rgba(255,255,255,0.04);
 }
+.obsidian-vault-path,
 .local-folder-path {
   flex: 1;
   min-width: 0;

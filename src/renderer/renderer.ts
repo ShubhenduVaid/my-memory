@@ -17,12 +17,20 @@ interface RendererApi {
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getObsidianConfig: () => Promise<ObsidianConfig>;
+  setObsidianConfig: (config: ObsidianConfig) => Promise<{ ok: boolean; vaults: string[] }>;
+  selectObsidianVault: () => Promise<{ canceled: boolean; path?: string }>;
+  syncObsidianNow: () => Promise<{ ok: boolean }>;
   getLocalConfig: () => Promise<LocalConfig>;
   setLocalConfig: (config: LocalConfig) => Promise<{ ok: boolean; folders: string[]; recursive: boolean }>;
   selectLocalFolder: () => Promise<{ canceled: boolean; path?: string }>;
   syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
+}
+
+interface ObsidianConfig {
+  vaults?: string[];
 }
 
 interface LocalConfig {
@@ -42,6 +50,12 @@ const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
 const apiKeyClear = document.getElementById('api-key-clear') as HTMLButtonElement;
 const apiKeyStatus = document.getElementById('api-key-status') as HTMLDivElement;
 const searchStatus = document.getElementById('search-status') as HTMLDivElement;
+const obsidianToggle = document.getElementById('obsidian-toggle') as HTMLButtonElement;
+const obsidianPanel = document.getElementById('obsidian-panel') as HTMLDivElement;
+const obsidianStatus = document.getElementById('obsidian-status') as HTMLDivElement;
+const obsidianAdd = document.getElementById('obsidian-add') as HTMLButtonElement;
+const obsidianSync = document.getElementById('obsidian-sync') as HTMLButtonElement;
+const obsidianVaults = document.getElementById('obsidian-vaults') as HTMLDivElement;
 const localToggle = document.getElementById('local-toggle') as HTMLButtonElement;
 const localPanel = document.getElementById('local-panel') as HTMLDivElement;
 const localStatus = document.getElementById('local-status') as HTMLDivElement;
@@ -58,6 +72,7 @@ let lastQuery = '';
 let loggedMissingApi = false;
 let aiRequestId = 0;
 let aiInFlight = false;
+let obsidianVaultList: string[] = [];
 let localFolderList: string[] = [];
 let localRecursiveEnabled = true;
 
@@ -123,6 +138,46 @@ function toggleApiKeyPanel(force?: boolean): void {
   if (show) apiKeyInput.focus();
 }
 
+function toggleObsidianPanel(force?: boolean): void {
+  const show = typeof force === 'boolean' ? force : !obsidianPanel.classList.contains('is-open');
+  obsidianPanel.classList.toggle('is-open', show);
+}
+
+function setObsidianStatus(message: string): void {
+  obsidianStatus.textContent = message;
+}
+
+function renderObsidianVaults(): void {
+  if (obsidianVaultList.length === 0) {
+    obsidianVaults.innerHTML = '';
+    obsidianSync.disabled = true;
+    setObsidianStatus('No vaults selected');
+    return;
+  }
+
+  obsidianSync.disabled = false;
+  setObsidianStatus(`${obsidianVaultList.length} vault${obsidianVaultList.length === 1 ? '' : 's'} selected`);
+  obsidianVaults.innerHTML = obsidianVaultList
+    .map(
+      vault => `
+        <div class="obsidian-vault">
+          <div class="obsidian-vault-path" title="${escapeHtml(vault)}">${escapeHtml(vault)}</div>
+          <button class="obsidian-remove" data-path="${encodeURIComponent(vault)}">Remove</button>
+        </div>
+      `
+    )
+    .join('');
+
+  obsidianVaults.querySelectorAll<HTMLButtonElement>('.obsidian-remove').forEach(button => {
+    button.addEventListener('click', () => {
+      const encoded = button.getAttribute('data-path') || '';
+      const decoded = decodeURIComponent(encoded);
+      obsidianVaultList = obsidianVaultList.filter(path => path !== decoded);
+      saveObsidianConfig();
+    });
+  });
+}
+
 function toggleLocalPanel(force?: boolean): void {
   const show = typeof force === 'boolean' ? force : !localPanel.classList.contains('is-open');
   localPanel.classList.toggle('is-open', show);
@@ -161,6 +216,38 @@ function renderLocalFolders(): void {
       saveLocalConfig();
     });
   });
+}
+
+async function refreshObsidianConfig(): Promise<void> {
+  if (!apiBridge?.getObsidianConfig) {
+    setObsidianStatus('Obsidian unavailable');
+    obsidianAdd.disabled = true;
+    obsidianSync.disabled = true;
+    return;
+  }
+  try {
+    const config = await apiBridge.getObsidianConfig();
+    obsidianVaultList = config.vaults || [];
+    obsidianAdd.disabled = false;
+    renderObsidianVaults();
+  } catch (error: unknown) {
+    logError('getObsidianConfig failed', error);
+    setObsidianStatus('Obsidian unavailable');
+    obsidianAdd.disabled = true;
+    obsidianSync.disabled = true;
+  }
+}
+
+async function saveObsidianConfig(): Promise<void> {
+  if (!apiBridge?.setObsidianConfig) return;
+  try {
+    const result = await apiBridge.setObsidianConfig({ vaults: obsidianVaultList });
+    obsidianVaultList = result.vaults;
+    renderObsidianVaults();
+  } catch (error: unknown) {
+    logError('setObsidianConfig failed', error);
+    setObsidianStatus('Failed to save vaults');
+  }
 }
 
 async function refreshLocalConfig(): Promise<void> {
@@ -209,12 +296,14 @@ if (apiBridge?.getGeminiKeyStatus) {
   setApiKeyStatus(false, 'API unavailable');
 }
 
+refreshObsidianConfig();
 refreshLocalConfig();
 
 // Event listeners
 searchInput.addEventListener('input', handleInput);
 window.addEventListener('keydown', handleKeydown);
 apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
+obsidianToggle.addEventListener('click', () => toggleObsidianPanel());
 localToggle.addEventListener('click', () => toggleLocalPanel());
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
@@ -257,6 +346,31 @@ apiKeyClear.addEventListener('click', async () => {
 });
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
+});
+obsidianAdd.addEventListener('click', async () => {
+  if (!apiBridge?.selectObsidianVault) {
+    setObsidianStatus('Obsidian unavailable');
+    return;
+  }
+  try {
+    const result = await apiBridge.selectObsidianVault();
+    if (result.canceled || !result.path) return;
+    if (!obsidianVaultList.includes(result.path)) {
+      obsidianVaultList = [...obsidianVaultList, result.path];
+      await saveObsidianConfig();
+    }
+  } catch (error: unknown) {
+    logError('selectObsidianVault failed', error);
+    setObsidianStatus('Failed to add vault');
+  }
+});
+obsidianSync.addEventListener('click', async () => {
+  if (!apiBridge?.syncObsidianNow) return;
+  try {
+    await apiBridge.syncObsidianNow();
+  } catch (error: unknown) {
+    logError('syncObsidianNow failed', error);
+  }
 });
 localAdd.addEventListener('click', async () => {
   if (!apiBridge?.selectLocalFolder) {
