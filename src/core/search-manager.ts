@@ -206,22 +206,33 @@ export class SearchManager {
   ): Promise<string | null> {
     const queryTokens = this.getQueryTokens(query);
     const context = notes
-      .slice(0, 6)
+      .slice(0, 8)
       .map((note, index) => {
         const title = note.title || 'Untitled';
         const folder = note.folder || 'Unknown folder';
         const excerpt = this.buildNoteExcerpt(note, queryTokens);
+        const formatHint = this.detectNoteFormat(note.content || note.snippet || '');
         return [
           `Note ${index + 1}`,
           `Title: ${title}`,
           `Folder: ${folder}`,
+          formatHint ? `Format: ${formatHint}` : null,
           `Content: ${excerpt || '<empty>'}`
-        ].join('\n');
+        ]
+          .filter(Boolean)
+          .join('\n');
       })
       .join('\n\n---\n\n');
 
     const prompt = `You are a helpful assistant that answers using ONLY the notes provided.
-Do not use outside knowledge. If the notes do not contain the answer, say so.
+Do not use outside knowledge. If the notes mention the query but lack a direct answer,
+say what the notes do mention and what is missing.
+If the question asks about a person or relationship (e.g., "who is", "can I trust",
+"what is their relationship"), summarize the evidence from the notes: roles, actions,
+support/conflict, and timeframe. Do NOT make a definitive trust judgment; state that
+trust is personal and depends on more context.
+If the notes are chat logs or database rows, treat them as evidence and summarize
+participants, dates, and topics explicitly mentioned.
 If the question is ambiguous, ask one short clarifying question instead of guessing.
 Prefer specific details from the notes (names, dates, decisions, numbers).
 If the question asks for a summary, provide a concise synthesis across relevant notes.
@@ -314,18 +325,22 @@ Answer now.`;
   }
 
   private buildNoteExcerpt(note: SearchResult, queryTokens: string[]): string {
-    const content = (note.content || note.snippet || '').replace(/\s+/g, ' ').trim();
+    const content = (note.content || note.snippet || '').replace(/\r\n/g, '\n').trim();
     if (!content) return '';
-    return this.extractRelevantExcerpt(content, queryTokens, 900);
+    return this.extractRelevantExcerpt(content, queryTokens, 1200);
   }
 
   private extractRelevantExcerpt(content: string, queryTokens: string[], maxTotal: number): string {
     if (!content) return '';
+    const lineExcerpt = this.extractLineExcerpt(content, queryTokens, maxTotal);
+    if (lineExcerpt) return lineExcerpt;
+
+    const flattened = content.replace(/\s+/g, ' ').trim();
     if (queryTokens.length === 0) {
-      return content.length > maxTotal ? content.slice(0, maxTotal) + '...' : content;
+      return flattened.length > maxTotal ? flattened.slice(0, maxTotal) + '...' : flattened;
     }
 
-    const lower = content.toLowerCase();
+    const lower = flattened.toLowerCase();
     const windowSize = 140;
     const ranges: Array<{ start: number; end: number }> = [];
 
@@ -333,13 +348,13 @@ Answer now.`;
       const index = lower.indexOf(token);
       if (index === -1) continue;
       const start = Math.max(0, index - windowSize);
-      const end = Math.min(content.length, index + token.length + windowSize);
+      const end = Math.min(flattened.length, index + token.length + windowSize);
       ranges.push({ start, end });
       if (ranges.length >= 6) break;
     }
 
     if (ranges.length === 0) {
-      return content.length > maxTotal ? content.slice(0, maxTotal) + '...' : content;
+      return flattened.length > maxTotal ? flattened.slice(0, maxTotal) + '...' : flattened;
     }
 
     ranges.sort((a, b) => a.start - b.start);
@@ -358,8 +373,8 @@ Answer now.`;
     for (const range of merged) {
       if (total >= maxTotal) break;
       const prefix = range.start > 0 ? '...' : '';
-      const suffix = range.end < content.length ? '...' : '';
-      let snippet = `${prefix}${content.slice(range.start, range.end).trim()}${suffix}`;
+      const suffix = range.end < flattened.length ? '...' : '';
+      let snippet = `${prefix}${flattened.slice(range.start, range.end).trim()}${suffix}`;
       if (total + snippet.length > maxTotal) {
         const remaining = maxTotal - total;
         snippet = snippet.slice(0, remaining).replace(/\s+\S*$/, '') + '...';
@@ -369,5 +384,68 @@ Answer now.`;
     }
 
     return snippets.join('\n...\n');
+  }
+
+  private extractLineExcerpt(content: string, queryTokens: string[], maxTotal: number): string | null {
+    const lines = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    if (lines.length < 2 || queryTokens.length === 0) return null;
+
+    const loweredTokens = queryTokens.map(token => token.toLowerCase());
+    const matchIndices: number[] = [];
+    lines.forEach((line, index) => {
+      const lower = line.toLowerCase();
+      if (loweredTokens.some(token => lower.includes(token))) matchIndices.push(index);
+    });
+    if (matchIndices.length === 0) return null;
+
+    const selected = new Set<number>();
+    for (const index of matchIndices) {
+      selected.add(index);
+      if (index > 0) selected.add(index - 1);
+      if (index < lines.length - 1) selected.add(index + 1);
+      if (selected.size >= 10) break;
+    }
+
+    const ordered = Array.from(selected).sort((a, b) => a - b);
+    const chunks: string[] = [];
+    let total = 0;
+    let lastIndex = -2;
+    for (const index of ordered) {
+      const line = lines[index];
+      if (!line) continue;
+      if (index > lastIndex + 1) chunks.push('...');
+      if (total + line.length > maxTotal) break;
+      chunks.push(line);
+      total += line.length;
+      lastIndex = index;
+    }
+
+    const result = chunks.join('\n').trim();
+    return result.length > 0 ? result : null;
+  }
+
+  private detectNoteFormat(content: string): string | null {
+    const lines = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+    if (lines.length < 3) return null;
+
+    const timestampPattern =
+      /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}(?::\d{2})?\b/;
+    const timestampLines = lines.filter(line => timestampPattern.test(line)).length;
+    if (timestampLines >= Math.min(3, Math.floor(lines.length / 3))) {
+      return 'chat log';
+    }
+
+    const kvLines = lines.filter(line => /^[^:\n]{1,40}:\s+\S+/.test(line)).length;
+    if (kvLines >= Math.min(4, Math.floor(lines.length / 2))) {
+      return 'database row';
+    }
+
+    return null;
   }
 }

@@ -86,16 +86,29 @@ export class NotionAdapter implements ISourceAdapter {
 
     const client = new NotionClient(token);
     const pages = await this.searchPages(client);
+    const databases = await this.searchDatabases(client);
+    const databasePages = await this.fetchDatabasePages(client, databases);
+    const mergedPages = this.mergePages(pages, databasePages);
     const databaseTitles = new Map<string, string>();
     const notes: Note[] = [];
 
-    for (const page of pages) {
+    if (mergedPages.length === 0) {
+      console.warn('[Notion] No pages found. Ensure pages are shared with the integration.');
+    } else {
+      console.log(
+        `[Notion] Pages: search=${pages.length} databases=${databases.length} databasePages=${databasePages.length}`
+      );
+    }
+
+    for (const page of mergedPages) {
       if (page.archived || page.in_trash) continue;
       const pageId = page.id as string | undefined;
       if (!pageId) continue;
 
       const title = this.extractPageTitle(page);
-      const content = await this.fetchPageContent(client, pageId);
+      const propertyText = this.extractPagePropertiesText(page);
+      const bodyText = await this.fetchPageContent(client, pageId);
+      const content = this.mergeContent(propertyText, bodyText);
       const folder = await this.getFolderLabel(page, client, databaseTitles);
       const editedAt = page.last_edited_time ? new Date(page.last_edited_time as string) : new Date();
 
@@ -187,12 +200,87 @@ export class NotionAdapter implements ISourceAdapter {
     return results;
   }
 
+  private async searchDatabases(client: NotionClient): Promise<NotionRecord[]> {
+    const results: NotionRecord[] = [];
+    let cursor: string | null = null;
+
+    do {
+      const body: Record<string, unknown> = {
+        page_size: SEARCH_PAGE_SIZE,
+        filter: {
+          property: 'object',
+          value: 'database'
+        }
+      };
+      if (cursor) body.start_cursor = cursor;
+
+      const response = await client.post('/search', body);
+      const dbResults = (response.results as NotionRecord[]) || [];
+      results.push(...dbResults);
+      cursor = response.has_more ? (response.next_cursor as string | null) : null;
+    } while (cursor);
+
+    return results;
+  }
+
+  private async fetchDatabasePages(client: NotionClient, databases: NotionRecord[]): Promise<NotionRecord[]> {
+    const results: NotionRecord[] = [];
+    for (const database of databases) {
+      const databaseId = database.id as string | undefined;
+      if (!databaseId) continue;
+      try {
+        const pages = await this.queryDatabase(client, databaseId);
+        results.push(...pages);
+      } catch (error) {
+        console.error('[Notion] Database query failed', databaseId, error);
+      }
+    }
+    return results;
+  }
+
+  private async queryDatabase(client: NotionClient, databaseId: string): Promise<NotionRecord[]> {
+    const results: NotionRecord[] = [];
+    let cursor: string | null = null;
+
+    do {
+      const body: Record<string, unknown> = { page_size: SEARCH_PAGE_SIZE };
+      if (cursor) body.start_cursor = cursor;
+
+      const response = await client.post(`/databases/${databaseId}/query`, body);
+      const pageResults = (response.results as NotionRecord[]) || [];
+      results.push(...pageResults);
+      cursor = response.has_more ? (response.next_cursor as string | null) : null;
+    } while (cursor);
+
+    return results;
+  }
+
+  private mergePages(...groups: NotionRecord[][]): NotionRecord[] {
+    const map = new Map<string, NotionRecord>();
+    for (const group of groups) {
+      for (const page of group) {
+        const pageId = page.id as string | undefined;
+        if (!pageId) continue;
+        if (!map.has(pageId)) map.set(pageId, page);
+      }
+    }
+    return Array.from(map.values());
+  }
+
   private async fetchPageContent(client: NotionClient, pageId: string): Promise<string> {
     const chunks: string[] = [];
     const state = { length: 0, done: false };
     await this.collectBlockText(client, pageId, 0, chunks, state);
-    const content = this.normalizeText(chunks.join('\n'));
-    return content;
+    return this.normalizeText(chunks.join('\n'));
+  }
+
+  private mergeContent(...parts: string[]): string {
+    const merged = parts
+      .map(part => part.trim())
+      .filter(part => part.length > 0)
+      .join('\n\n');
+    if (merged.length <= MAX_CONTENT_CHARS) return this.normalizeText(merged);
+    return this.normalizeText(merged.slice(0, MAX_CONTENT_CHARS));
   }
 
   private async collectBlockText(
@@ -299,6 +387,156 @@ export class NotionAdapter implements ISourceAdapter {
         }
       }
     }
+    return '';
+  }
+
+  private extractPagePropertiesText(page: NotionRecord): string {
+    const properties = page.properties as Record<string, NotionRecord> | undefined;
+    if (!properties) return '';
+
+    const lines: string[] = [];
+    for (const [name, property] of Object.entries(properties)) {
+      const value = this.extractPropertyText(property);
+      if (value) lines.push(`${name}: ${value}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  private extractPropertyText(property: NotionRecord): string {
+    const type = property.type as string | undefined;
+    if (!type) return '';
+    const value = property[type] as unknown;
+
+    switch (type) {
+      case 'title':
+      case 'rich_text':
+        return this.extractRichText(value);
+      case 'select':
+      case 'status':
+        return this.extractName(value);
+      case 'multi_select':
+        return this.extractNameList(value);
+      case 'number':
+        return typeof value === 'number' ? String(value) : '';
+      case 'checkbox':
+        return value === true ? 'true' : value === false ? 'false' : '';
+      case 'url':
+      case 'email':
+      case 'phone_number':
+        return typeof value === 'string' ? value : '';
+      case 'date':
+        return this.extractDate(value);
+      case 'people':
+        return this.extractPeople(value);
+      case 'files':
+        return this.extractFiles(value);
+      case 'formula':
+        return this.extractFormula(value);
+      case 'rollup':
+        return this.extractRollup(value);
+      default:
+        return '';
+    }
+  }
+
+  private extractRichText(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+      .map(item => (item as NotionRecord).plain_text)
+      .filter((text): text is string => typeof text === 'string' && text.length > 0)
+      .join('');
+  }
+
+  private extractName(value: unknown): string {
+    if (!value || typeof value !== 'object') return '';
+    const name = (value as NotionRecord).name;
+    return typeof name === 'string' ? name : '';
+  }
+
+  private extractNameList(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+      .map(item => this.extractName(item))
+      .filter(text => text.length > 0)
+      .join(', ');
+  }
+
+  private extractDate(value: unknown): string {
+    if (!value || typeof value !== 'object') return '';
+    const start = (value as NotionRecord).start;
+    const end = (value as NotionRecord).end;
+    const startText = typeof start === 'string' ? start : '';
+    const endText = typeof end === 'string' ? end : '';
+    if (startText && endText) return `${startText} - ${endText}`;
+    return startText || endText;
+  }
+
+  private extractPeople(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+      .map(person => {
+        if (!person || typeof person !== 'object') return '';
+        const name = (person as NotionRecord).name;
+        if (typeof name === 'string' && name.length > 0) return name;
+        const personInfo = (person as NotionRecord).person as NotionRecord | undefined;
+        if (personInfo && typeof personInfo.email === 'string') return personInfo.email;
+        return '';
+      })
+      .filter(text => text.length > 0)
+      .join(', ');
+  }
+
+  private extractFiles(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+      .map(file => {
+        if (!file || typeof file !== 'object') return '';
+        const name = (file as NotionRecord).name;
+        if (typeof name === 'string' && name.length > 0) return name;
+        const fileInfo = (file as NotionRecord).file as NotionRecord | undefined;
+        if (fileInfo && typeof fileInfo.url === 'string') return fileInfo.url;
+        const externalInfo = (file as NotionRecord).external as NotionRecord | undefined;
+        if (externalInfo && typeof externalInfo.url === 'string') return externalInfo.url;
+        return '';
+      })
+      .filter(text => text.length > 0)
+      .join(', ');
+  }
+
+  private extractFormula(value: unknown): string {
+    if (!value || typeof value !== 'object') return '';
+    const type = (value as NotionRecord).type;
+    if (typeof type !== 'string') return '';
+    const formulaValue = (value as NotionRecord)[type];
+    if (typeof formulaValue === 'string' || typeof formulaValue === 'number') {
+      return String(formulaValue);
+    }
+    if (typeof formulaValue === 'boolean') return formulaValue ? 'true' : 'false';
+    if (formulaValue && typeof formulaValue === 'object') {
+      return this.extractDate(formulaValue);
+    }
+    return '';
+  }
+
+  private extractRollup(value: unknown): string {
+    if (!value || typeof value !== 'object') return '';
+    const type = (value as NotionRecord).type;
+    if (typeof type !== 'string') return '';
+    const rollupValue = (value as NotionRecord)[type];
+    if (Array.isArray(rollupValue)) {
+      const items = rollupValue
+        .map(item => {
+          if (!item || typeof item !== 'object') return '';
+          const itemType = (item as NotionRecord).type;
+          if (typeof itemType !== 'string') return '';
+          return this.extractPropertyText({ type: itemType, [itemType]: (item as NotionRecord)[itemType] });
+        })
+        .filter(text => text.length > 0);
+      return items.join(', ');
+    }
+    if (typeof rollupValue === 'number') return String(rollupValue);
+    if (rollupValue && typeof rollupValue === 'object') return this.extractDate(rollupValue);
     return '';
   }
 
