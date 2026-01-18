@@ -12,14 +12,20 @@ import {
   nativeImage,
   dialog,
   Menu,
-  shell
+  shell,
+  session
 } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
 
-// Load environment variables
-config({ path: path.join(__dirname, '../../.env') });
+const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32';
+
+// Load environment variables only in development
+if (!app.isPackaged) {
+  config({ path: path.join(__dirname, '../../.env') });
+}
 
 import { pluginRegistry } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
@@ -33,10 +39,33 @@ import { readUserConfig, writeUserConfig } from './user-config';
 // Application state
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let isQuitting = false;
 const searchManager = new SearchManager();
 const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
 const notionAdapter = new NotionAdapter();
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
+if (isWindows) {
+  app.setAppUserModelId('com.mymemory.app');
+}
+
+function isSafeExternalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ['https:', 'mailto:', 'notes:', 'obsidian:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function isSafeNavigationUrl(url: string): boolean {
+  return url.startsWith('file://');
+}
 
 /** Create the main search window */
 function createWindow(): void {
@@ -47,12 +76,16 @@ function createWindow(): void {
     frame: false,
     resizable: true,
     skipTaskbar: true,
-    transparent: true,
-    vibrancy: 'under-window',
+    autoHideMenuBar: true,
+    backgroundColor: '#1e1e1e',
+    transparent: isMac,
+    vibrancy: isMac ? 'under-window' : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true,
+      devTools: !app.isPackaged
     }
   });
 
@@ -109,6 +142,9 @@ function createWindow(): void {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   mainWindow.on('blur', () => mainWindow?.hide());
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 /** Toggle window visibility */
@@ -197,10 +233,43 @@ async function initializeApp(): Promise<void> {
 
 // Application lifecycle
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return;
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+
   createWindow();
   createTray();
-  globalShortcut.register('CommandOrControl+Shift+Space', toggleWindow);
+  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+Space', toggleWindow);
+  if (!shortcutRegistered) {
+    console.warn('[Shortcut] Failed to register CommandOrControl+Shift+Space');
+  }
+
   await initializeApp();
+});
+
+app.on('second-instance', () => {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
+app.on('activate', () => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+  createWindow();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('will-quit', () => {
@@ -209,7 +278,31 @@ app.on('will-quit', () => {
   searchManager.stop();
 });
 
-app.on('window-all-closed', (event: Event) => event.preventDefault());
+app.on('window-all-closed', (event: Event) => {
+  if (!isQuitting) {
+    event.preventDefault();
+  }
+});
+
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (!app.isPackaged && url.startsWith('devtools://')) {
+      return { action: 'allow' };
+    }
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  contents.on('will-navigate', (event, url) => {
+    if (isSafeNavigationUrl(url)) return;
+    event.preventDefault();
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+  });
+});
 
 function formatQueryForLog(query: string): { preview: string; length: number } {
   const normalized = query.replace(/\s+/g, ' ').trim();
@@ -371,19 +464,25 @@ ipcMain.handle('local-sync-now', async () => {
 ipcMain.on('open-note', (_event, noteId: string) => {
   if (noteId.startsWith('apple-notes:')) {
     const sourceId = noteId.replace('apple-notes:', '');
-    shell.openExternal(`notes://showNote?identifier=${encodeURIComponent(sourceId)}`);
+    const url = `notes://showNote?identifier=${encodeURIComponent(sourceId)}`;
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
     return;
   }
   if (noteId.startsWith('notion:')) {
     const pageId = noteId.replace('notion:', '');
     const urlId = pageId.replace(/-/g, '');
-    shell.openExternal(`https://www.notion.so/${encodeURIComponent(urlId)}`);
+    const url = `https://www.notion.so/${encodeURIComponent(urlId)}`;
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
     return;
   }
   if (noteId.startsWith('obsidian:')) {
     const filePath = decodeURIComponent(noteId.replace('obsidian:', ''));
     const url = `obsidian://open?path=${encodeURIComponent(filePath)}`;
-    void shell.openExternal(url).catch(() => shell.openPath(filePath));
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url).catch(() => shell.openPath(filePath));
+    } else {
+      void shell.openPath(filePath);
+    }
     return;
   }
   if (noteId.startsWith('local-file:')) {

@@ -38,6 +38,18 @@
         "NSAppleEventsUsageDescription": "My Memory needs access to Apple Notes to fetch and search your notes."
       }
     },
+    "win": {
+      "target": "nsis",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
     "asarUnpack": [
       "**/*.node"
     ],

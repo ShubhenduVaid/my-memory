@@ -697,7 +697,8 @@ function selectResult(index: number): void {
 
 /** Simple markdown renderer for AI answers */
 function renderMarkdown(text: string): string {
-  return text
+  const escaped = escapeHtml(text);
+  return escaped
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/^[\*\-] (.+)$/gm, '<li>$1</li>')
