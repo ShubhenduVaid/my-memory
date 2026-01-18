@@ -32,7 +32,11 @@ body {
 #local-toggle,
 #local-add,
 #local-sync,
-.local-remove {
+.local-remove,
+#notion-toggle,
+#notion-save,
+#notion-clear,
+#notion-sync {
   padding: 10px 12px;
   font-size: 12px;
   border: 1px solid rgba(255,255,255,0.2);
@@ -51,7 +55,11 @@ body {
 #local-toggle:hover,
 #local-add:hover,
 #local-sync:hover,
-.local-remove:hover { background: rgba(255,255,255,0.16); }
+.local-remove:hover,
+#notion-toggle:hover,
+#notion-save:hover,
+#notion-clear:hover,
+#notion-sync:hover { background: rgba(255,255,255,0.16); }
 #api-key-toggle:disabled,
 #api-key-save:disabled,
 #api-key-clear:disabled,
@@ -62,7 +70,11 @@ body {
 #local-toggle:disabled,
 #local-add:disabled,
 #local-sync:disabled,
-.local-remove:disabled { opacity: 0.6; cursor: default; }
+.local-remove:disabled,
+#notion-toggle:disabled,
+#notion-save:disabled,
+#notion-clear:disabled,
+#notion-sync:disabled { opacity: 0.6; cursor: default; }
 #search::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-panel {
   margin-top: 10px;
@@ -83,22 +95,38 @@ body {
   color: #fff;
   outline: none;
 }
+#notion-token-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+}
 #api-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+#notion-token-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
 #obsidian-panel,
-#local-panel {
+#local-panel,
+#notion-panel {
   margin-top: 10px;
   display: none;
   flex-direction: column;
   gap: 8px;
 }
 #obsidian-panel.is-open,
-#local-panel.is-open { display: flex; }
+#local-panel.is-open,
+#notion-panel.is-open { display: flex; }
 .panel-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .panel-label { font-size: 11px; color: rgba(255,255,255,0.6); }
 #obsidian-status,
-#local-status { font-size: 11px; color: rgba(255,255,255,0.7); }
+#local-status,
+#notion-status { font-size: 11px; color: rgba(255,255,255,0.7); }
+#notion-status[data-state="set"] { color: #9bdc8c; }
 #obsidian-vaults,
 #local-folders { display: flex; flex-direction: column; gap: 6px; }
 .obsidian-vault,

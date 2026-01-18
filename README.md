@@ -10,6 +10,7 @@ Intelligent semantic search across your notes using AI.
 - **Apple Notes Integration** - Real-time sync with your Notes app
 - **Obsidian Integration** - Search across your vaults
 - **Local Files Integration** - Search markdown, text, and PDFs from folders
+- **Notion Integration** - Search pages shared with your Notion integration
 - **Menu Bar App** - Lives in your menu bar, always accessible
 - **Plugin Architecture** - Extensible for future integrations (Notion, Teams, etc.)
 
@@ -67,6 +68,18 @@ Notes:
 - Text files larger than 2 MB and PDFs larger than 10 MB are skipped.
 - File content is truncated to the first ~20k characters to keep search fast.
 
+## Notion
+
+1. Create a Notion integration at https://www.notion.so/my-integrations
+2. Copy the **Internal Integration Token**.
+3. Share the pages/databases you want indexed with the integration.
+4. Click **Notion** in the search bar, paste the token, and **Sync now**.
+
+Notes:
+
+- Only pages explicitly shared with the integration are indexed.
+- Content is truncated to the first ~20k characters to keep search fast.
+
 ## Architecture
 
 ```
@@ -80,7 +93,8 @@ src/
 └── adapters/       # Source adapters
     ├── apple-notes.ts
     ├── obsidian.ts
-    └── local-files.ts
+    ├── local-files.ts
+    └── notion.ts
 ```
 
 ## Adding New Integrations

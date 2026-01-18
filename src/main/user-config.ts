@@ -6,6 +6,7 @@ export interface UserConfig {
   geminiApiKey?: string;
   obsidian?: ObsidianConfig;
   local?: LocalConfig;
+  notion?: NotionConfig;
 }
 
 export interface ObsidianConfig {
@@ -15,6 +16,10 @@ export interface ObsidianConfig {
 export interface LocalConfig {
   folders?: string[];
   recursive?: boolean;
+}
+
+export interface NotionConfig {
+  token?: string;
 }
 
 const CONFIG_FILENAME = 'config.json';
@@ -41,7 +46,15 @@ export function writeUserConfig(update: UserConfig): void {
       : { ...(current.obsidian || {}), ...(update.obsidian || {}) };
   const nextLocal =
     update.local === undefined ? current.local : { ...(current.local || {}), ...(update.local || {}) };
-  const next: UserConfig = { ...current, ...update, obsidian: nextObsidian, local: nextLocal };
+  const nextNotion =
+    update.notion === undefined ? current.notion : { ...(current.notion || {}), ...(update.notion || {}) };
+  const next: UserConfig = {
+    ...current,
+    ...update,
+    obsidian: nextObsidian,
+    local: nextLocal,
+    notion: nextNotion
+  };
   if (!next.geminiApiKey) delete next.geminiApiKey;
   if (next.obsidian) {
     if (!next.obsidian.vaults || next.obsidian.vaults.length === 0) delete next.obsidian.vaults;
@@ -51,6 +64,10 @@ export function writeUserConfig(update: UserConfig): void {
     if (!next.local.folders || next.local.folders.length === 0) delete next.local.folders;
     if (next.local.recursive === undefined) delete next.local.recursive;
     if (!next.local.folders && next.local.recursive === undefined) delete next.local;
+  }
+  if (next.notion) {
+    if (!next.notion.token) delete next.notion.token;
+    if (!next.notion.token) delete next.notion;
   }
 
   const configPath = getConfigPath();
