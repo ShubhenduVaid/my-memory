@@ -16,7 +16,7 @@ Intelligent semantic search across your notes using AI.
 
 ## Requirements
 
-- macOS
+- macOS, Windows, or Linux (Apple Notes integration is macOS-only)
 - Node.js 18+
 - Gemini API key (free at https://makersuite.google.com/app/apikey)
 
@@ -119,4 +119,31 @@ interface ISourceAdapter {
 npm run dist
 ```
 
-Creates a DMG in the `dist/` folder.
+Creates installers in the `release/` folder for your current platform.
+
+## Release & Auto Updates
+
+Auto updates use GitHub Releases and run in packaged builds only. Use the tray menu to check manually.
+
+Required environment variables for publishing:
+
+- `GITHUB_OWNER`, `GITHUB_REPO`
+- `GH_TOKEN` (or `GITHUB_TOKEN`)
+
+Code signing:
+
+- macOS: `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_ID_PASSWORD`, `APPLE_TEAM_ID`
+- Windows: `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD`
+
+Optional:
+
+- `UPDATE_CHANNEL` (`stable`, `beta`, `alpha`)
+- `AUTO_UPDATES=false` to disable update checks
+
+Publish a release locally:
+
+```bash
+npm run release
+```
+
+Or use the GitHub Actions workflow in `.github/workflows/release.yml`.
