@@ -8,7 +8,21 @@ body {
   flex-direction: column;
 }
 #app { display: flex; flex-direction: column; height: 100%; }
-#search-bar { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+#search-bar {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  -webkit-app-region: drag;
+}
+#search-bar input,
+#search-bar button,
+#search-bar label,
+#search-bar #search-status,
+#search-bar #api-key-panel,
+#search-bar #obsidian-panel,
+#search-bar #local-panel,
+#search-bar #notion-panel {
+  -webkit-app-region: no-drag;
+}
 #search-row { display: flex; align-items: center; gap: 10px; }
 #search {
   flex: 1;
