@@ -17,6 +17,9 @@ interface RendererApi {
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getNotionConfig: () => Promise<{ hasToken: boolean }>;
+  setNotionToken: (token: string | null) => Promise<{ ok: boolean; hasToken: boolean }>;
+  syncNotionNow: () => Promise<{ ok: boolean }>;
   getObsidianConfig: () => Promise<ObsidianConfig>;
   setObsidianConfig: (config: ObsidianConfig) => Promise<{ ok: boolean; vaults: string[] }>;
   selectObsidianVault: () => Promise<{ canceled: boolean; path?: string }>;
@@ -63,6 +66,13 @@ const localAdd = document.getElementById('local-add') as HTMLButtonElement;
 const localSync = document.getElementById('local-sync') as HTMLButtonElement;
 const localRecursive = document.getElementById('local-recursive') as HTMLInputElement;
 const localFolders = document.getElementById('local-folders') as HTMLDivElement;
+const notionToggle = document.getElementById('notion-toggle') as HTMLButtonElement;
+const notionPanel = document.getElementById('notion-panel') as HTMLDivElement;
+const notionTokenInput = document.getElementById('notion-token-input') as HTMLInputElement;
+const notionSave = document.getElementById('notion-save') as HTMLButtonElement;
+const notionClear = document.getElementById('notion-clear') as HTMLButtonElement;
+const notionSync = document.getElementById('notion-sync') as HTMLButtonElement;
+const notionStatus = document.getElementById('notion-status') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -75,6 +85,7 @@ let aiInFlight = false;
 let obsidianVaultList: string[] = [];
 let localFolderList: string[] = [];
 let localRecursiveEnabled = true;
+let notionHasToken = false;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -136,6 +147,23 @@ function toggleApiKeyPanel(force?: boolean): void {
   const show = typeof force === 'boolean' ? force : !apiKeyPanel.classList.contains('is-open');
   apiKeyPanel.classList.toggle('is-open', show);
   if (show) apiKeyInput.focus();
+}
+
+function setNotionStatus(hasToken: boolean, message?: string): void {
+  const base = hasToken ? 'Notion token saved' : 'Notion token not set';
+  notionStatus.textContent = message ? `${base} - ${message}` : base;
+  notionStatus.dataset.state = hasToken ? 'set' : 'unset';
+}
+
+function updateNotionControls(): void {
+  notionClear.disabled = !notionHasToken;
+  notionSync.disabled = !notionHasToken;
+}
+
+function toggleNotionPanel(force?: boolean): void {
+  const show = typeof force === 'boolean' ? force : !notionPanel.classList.contains('is-open');
+  notionPanel.classList.toggle('is-open', show);
+  if (show) notionTokenInput.focus();
 }
 
 function toggleObsidianPanel(force?: boolean): void {
@@ -218,6 +246,40 @@ function renderLocalFolders(): void {
   });
 }
 
+async function refreshNotionConfig(): Promise<void> {
+  if (!apiBridge?.getNotionConfig) {
+    setNotionStatus(false, 'Notion unavailable');
+    notionSave.disabled = true;
+    updateNotionControls();
+    return;
+  }
+  try {
+    const config = await apiBridge.getNotionConfig();
+    notionHasToken = config.hasToken;
+    notionSave.disabled = false;
+    setNotionStatus(notionHasToken);
+    updateNotionControls();
+  } catch (error: unknown) {
+    logError('getNotionConfig failed', error);
+    setNotionStatus(false, 'Notion unavailable');
+    notionSave.disabled = true;
+    updateNotionControls();
+  }
+}
+
+async function updateNotionToken(token: string | null): Promise<void> {
+  if (!apiBridge?.setNotionToken) return;
+  try {
+    const result = await apiBridge.setNotionToken(token);
+    notionHasToken = result.hasToken;
+    setNotionStatus(notionHasToken, token ? 'saved' : 'cleared');
+    updateNotionControls();
+  } catch (error: unknown) {
+    logError('setNotionToken failed', error);
+    setNotionStatus(notionHasToken, 'save failed');
+  }
+}
+
 async function refreshObsidianConfig(): Promise<void> {
   if (!apiBridge?.getObsidianConfig) {
     setObsidianStatus('Obsidian unavailable');
@@ -298,6 +360,7 @@ if (apiBridge?.getGeminiKeyStatus) {
 
 refreshObsidianConfig();
 refreshLocalConfig();
+refreshNotionConfig();
 
 // Event listeners
 searchInput.addEventListener('input', handleInput);
@@ -305,6 +368,7 @@ window.addEventListener('keydown', handleKeydown);
 apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
 obsidianToggle.addEventListener('click', () => toggleObsidianPanel());
 localToggle.addEventListener('click', () => toggleLocalPanel());
+notionToggle.addEventListener('click', () => toggleNotionPanel());
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
     setApiKeyStatus(false, 'API unavailable');
@@ -346,6 +410,40 @@ apiKeyClear.addEventListener('click', async () => {
 });
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
+});
+notionTokenInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') notionSave.click();
+});
+notionSave.addEventListener('click', async () => {
+  const token = notionTokenInput.value.trim();
+  if (!token) {
+    setNotionStatus(notionHasToken, 'enter a token to save');
+    return;
+  }
+  notionSave.disabled = true;
+  try {
+    await updateNotionToken(token);
+    notionTokenInput.value = '';
+  } finally {
+    notionSave.disabled = false;
+  }
+});
+notionClear.addEventListener('click', async () => {
+  notionClear.disabled = true;
+  try {
+    await updateNotionToken(null);
+    notionTokenInput.value = '';
+  } finally {
+    notionClear.disabled = false;
+  }
+});
+notionSync.addEventListener('click', async () => {
+  if (!apiBridge?.syncNotionNow) return;
+  try {
+    await apiBridge.syncNotionNow();
+  } catch (error: unknown) {
+    logError('syncNotionNow failed', error);
+  }
 });
 obsidianAdd.addEventListener('click', async () => {
   if (!apiBridge?.selectObsidianVault) {

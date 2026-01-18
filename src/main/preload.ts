@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld("api", {
   setGeminiKey: (apiKey: string | null) =>
     ipcRenderer.invoke("set-gemini-key", apiKey),
 
+  /** Check whether a Notion token is configured */
+  getNotionConfig: () => ipcRenderer.invoke("notion-get-config"),
+
+  /** Set or clear the Notion token */
+  setNotionToken: (token: string | null) =>
+    ipcRenderer.invoke("notion-set-token", token),
+
+  /** Trigger Notion sync */
+  syncNotionNow: () => ipcRenderer.invoke("notion-sync-now"),
+
   /** Get Obsidian vault config */
   getObsidianConfig: () => ipcRenderer.invoke("obsidian-get-config"),
 

@@ -25,6 +25,7 @@ import { pluginRegistry } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
 import { ObsidianAdapter } from '../adapters/obsidian';
 import { LocalFilesAdapter } from '../adapters/local-files';
+import { NotionAdapter } from '../adapters/notion';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
 import { readUserConfig, writeUserConfig } from './user-config';
@@ -35,6 +36,7 @@ let tray: Tray | null = null;
 const searchManager = new SearchManager();
 const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
+const notionAdapter = new NotionAdapter();
 
 /** Create the main search window */
 function createWindow(): void {
@@ -167,6 +169,7 @@ async function initializeApp(): Promise<void> {
   pluginRegistry.register(new AppleNotesAdapter());
   pluginRegistry.register(obsidianAdapter);
   pluginRegistry.register(localFilesAdapter);
+  pluginRegistry.register(notionAdapter);
   await pluginRegistry.initializeAll();
 
   // Set up change watchers
@@ -269,6 +272,25 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
+ipcMain.handle('notion-get-config', () => {
+  const notionToken = readUserConfig().notion?.token;
+  return { hasToken: Boolean(notionToken) };
+});
+
+ipcMain.handle('notion-set-token', async (_event, token: string | null | undefined) => {
+  const trimmed = typeof token === 'string' ? token.trim() : '';
+  const notionToken = trimmed.length > 0 ? trimmed : undefined;
+  writeUserConfig({ notion: { token: notionToken } });
+  notionAdapter.refreshWatchers();
+  await syncNotes();
+  return { ok: true, hasToken: Boolean(notionToken) };
+});
+
+ipcMain.handle('notion-sync-now', async () => {
+  await syncNotes();
+  return { ok: true };
+});
+
 ipcMain.handle('obsidian-get-config', () => {
   const obsidian = readUserConfig().obsidian || {};
   return { vaults: obsidian.vaults || [] };
@@ -350,6 +372,12 @@ ipcMain.on('open-note', (_event, noteId: string) => {
   if (noteId.startsWith('apple-notes:')) {
     const sourceId = noteId.replace('apple-notes:', '');
     shell.openExternal(`notes://showNote?identifier=${encodeURIComponent(sourceId)}`);
+    return;
+  }
+  if (noteId.startsWith('notion:')) {
+    const pageId = noteId.replace('notion:', '');
+    const urlId = pageId.replace(/-/g, '');
+    shell.openExternal(`https://www.notion.so/${encodeURIComponent(urlId)}`);
     return;
   }
   if (noteId.startsWith('obsidian:')) {
