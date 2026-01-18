@@ -77,7 +77,9 @@ Notes:
 
 Notes:
 
-- Only pages explicitly shared with the integration are indexed.
+- Only pages/databases explicitly shared with the integration are indexed.
+- Database items are indexed when their parent database is shared with the integration.
+- Database property values are indexed, even when the page body is empty.
 - Content is truncated to the first ~20k characters to keep search fast.
 
 ## Architecture
