@@ -35,6 +35,7 @@ import { NotionAdapter } from '../adapters/notion';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
 import { readUserConfig, writeUserConfig } from './user-config';
+import { updateService } from './update-service';
 
 // Application state
 let mainWindow: BrowserWindow | null = null;
@@ -88,6 +89,7 @@ function createWindow(): void {
       devTools: !app.isPackaged
     }
   });
+  updateService.setMainWindow(mainWindow);
 
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     if (typeof message !== 'string') return;
@@ -144,6 +146,7 @@ function createWindow(): void {
   mainWindow.on('blur', () => mainWindow?.hide());
   mainWindow.on('closed', () => {
     mainWindow = null;
+    updateService.setMainWindow(null);
   });
 }
 
@@ -172,6 +175,7 @@ function createTray(): void {
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Search', click: toggleWindow },
     { label: 'Sync Now', click: syncNotes },
+    { label: 'Check for Updates...', click: () => void updateService.checkForUpdates(true) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ]);
@@ -247,6 +251,7 @@ app.whenReady().then(async () => {
   }
 
   await initializeApp();
+  updateService.scheduleUpdateCheck();
 });
 
 app.on('second-instance', () => {

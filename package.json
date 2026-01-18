@@ -7,11 +7,16 @@
     "build": "tsc && node scripts/copy-renderer-assets.js",
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder",
+    "release": "npm run build && electron-builder --publish always",
+    "release:mac": "npm run build && electron-builder --mac --publish always",
+    "release:win": "npm run build && electron-builder --win --publish always",
+    "release:linux": "npm run build && electron-builder --linux --publish always",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@electron/notarize": "^2.2.1",
     "@electron/rebuild": "^3.6.0",
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.10.0",
@@ -23,6 +28,8 @@
     "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^9.2.2",
     "dotenv": "^17.2.3",
+    "electron-log": "^5.1.2",
+    "electron-updater": "^6.1.7",
     "pdf-parse": "^1.1.1"
   },
   "build": {
@@ -31,9 +38,17 @@
     "directories": {
       "output": "release"
     },
+    "afterSign": "scripts/notarize.js",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "gatekeeperAssess": false,
       "extendInfo": {
         "NSAppleEventsUsageDescription": "My Memory needs access to Apple Notes to fetch and search your notes."
       }
@@ -47,11 +62,22 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
-      "target": "AppImage",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     },
     "asarUnpack": [
       "**/*.node"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "${env.GITHUB_OWNER}",
+        "repo": "${env.GITHUB_REPO}",
+        "releaseType": "release"
+      }
     ],
     "files": [
       "dist/**/*",
