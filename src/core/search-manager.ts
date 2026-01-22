@@ -1,11 +1,11 @@
 /**
- * Search manager with AI-powered semantic search using Gemini.
+ * Search manager with AI-powered semantic search.
  * Combines smart keyword search with AI-generated answers.
  */
 
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { cache } from './cache';
-import { Note } from './types';
+import { Note, ILLMAdapter, llmRegistry, LLMConfig } from './types';
+import { GeminiAdapter, OpenRouterAdapter, OllamaAdapter } from '../adapters/llm';
 
 /** Search result returned to the UI */
 export interface SearchResult {
@@ -17,12 +17,6 @@ export interface SearchResult {
   score: number;
 }
 
-/** Model entry for rotation */
-interface ModelEntry {
-  name: string;
-  model: GenerativeModel;
-}
-
 /** Common stop words to filter from search queries */
 const STOP_WORDS = new Set([
   'what', 'did', 'i', 'is', 'the', 'a', 'an', 'with', 'was', 'were',
@@ -32,24 +26,9 @@ const STOP_WORDS = new Set([
   'been', 'being', 'am', 'are', 'this', 'that', 'these', 'those'
 ]);
 
-/** Gemini models to rotate through (latest to oldest) */
-const GEMINI_MODELS = [
-  'gemini-3-pro-preview',
-  'gemini-3-flash-preview',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-flash-latest',
-  'gemini-flash-lite-latest',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite'
-];
-
 export class SearchManager {
-  private models: ModelEntry[] = [];
-  private modelIndex = 0;
+  private llm: ILLMAdapter | null = null;
   private loggedEmptyCache = false;
-  private apiKey: string | null = null;
 
   private getQueryTokens(query: string): string[] {
     const tokens = query
@@ -72,32 +51,38 @@ export class SearchManager {
     this.loggedEmptyCache = true;
   }
 
-  /** Initialize the search manager with Gemini models */
-  async initialize(apiKey?: string | null): Promise<void> {
-    const resolvedKey = (apiKey ?? this.apiKey ?? process.env.GEMINI_API_KEY)?.trim();
-    this.apiKey = resolvedKey || null;
-    this.models = [];
-    this.modelIndex = 0;
+  /** Initialize the search manager with LLM adapters */
+  async initialize(config?: LLMConfig & { provider?: string }): Promise<void> {
+    // Register all adapters
+    const gemini = new GeminiAdapter();
+    const openrouter = new OpenRouterAdapter();
+    const ollama = new OllamaAdapter();
 
-    if (!this.apiKey) {
-      console.log('[SearchManager] No GEMINI_API_KEY - AI answers disabled');
-      return;
+    llmRegistry.register(gemini);
+    llmRegistry.register(openrouter);
+    llmRegistry.register(ollama);
+
+    // Initialize all adapters
+    await Promise.all([
+      gemini.initialize(config || {}),
+      openrouter.initialize(config || {}),
+      ollama.initialize(config || {}),
+    ]);
+
+    // Set current adapter based on config or first available
+    const provider = config?.provider || 'gemini';
+    if (!llmRegistry.setCurrent(provider)) {
+      // Fallback to first available
+      for (const adapter of llmRegistry.getAll()) {
+        if (adapter.isAvailable()) {
+          llmRegistry.setCurrent(adapter.name);
+          break;
+        }
+      }
     }
 
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    this.models = GEMINI_MODELS.map(name => ({
-      name,
-      model: genAI.getGenerativeModel({ model: name })
-    }));
-    console.log('[SearchManager] Gemini ready with', this.models.length, 'models');
-  }
-
-  /** Get the next model in rotation */
-  private getNextModel(): ModelEntry | null {
-    if (this.models.length === 0) return null;
-    const entry = this.models[this.modelIndex];
-    this.modelIndex = (this.modelIndex + 1) % this.models.length;
-    return entry;
+    this.llm = llmRegistry.getCurrent();
+    console.log('[SearchManager] LLM:', this.llm?.name || 'none available');
   }
 
   /**
@@ -136,74 +121,21 @@ export class SearchManager {
     return this.smartSearch(query, notes);
   }
 
-  /** Try to generate an AI answer, falling back across models on errors */
+  /** Try to generate an AI answer using the current LLM adapter */
   private async tryGenerateAnswer(query: string, matches: SearchResult[]): Promise<string | null> {
-    if (this.models.length === 0) return null;
+    if (!this.llm) return null;
 
-    const attempts = this.models.length;
-    for (let i = 0; i < attempts; i++) {
-      const modelEntry = this.getNextModel();
-      if (!modelEntry) break;
-      try {
-        const answer = await this.generateAnswer(query, matches, modelEntry.model);
-        if (answer) return answer;
-        console.warn(`[Search] Gemini returned empty response for ${modelEntry.name}`);
-      } catch (error: unknown) {
-        console.error(
-          `[Search] Gemini error on ${modelEntry.name}: ${this.formatGeminiError(error)}`,
-          error
-        );
-      }
+    try {
+      const prompt = this.buildPrompt(query, matches);
+      const response = await this.llm.generate({ prompt });
+      return response.text || null;
+    } catch (error) {
+      console.error('[SearchManager] LLM error:', error);
+      return null;
     }
-
-    console.warn('[Search] All Gemini models failed; AI answer unavailable');
-    return null;
   }
 
-  private formatGeminiError(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'string') return error;
-    if (typeof error === 'object' && error !== null) {
-      const err = error as Record<string, unknown>;
-      const parts: string[] = [];
-      if (typeof err.status === 'number') parts.push(`status=${err.status}`);
-      if (typeof err.message === 'string') parts.push(err.message);
-      if (typeof err.errorDetails === 'string') parts.push(err.errorDetails);
-      if (typeof err.errorDetails === 'object' && err.errorDetails !== null) {
-        try {
-          parts.push(JSON.stringify(err.errorDetails));
-        } catch {
-          // ignore
-        }
-      }
-      if (parts.length > 0) return parts.join(' ');
-      try {
-        return JSON.stringify(err);
-      } catch {
-        return '[object error]';
-      }
-    }
-    return 'Unknown error';
-  }
-
-  /** Create an AI answer search result */
-  private createAiResult(content: string): SearchResult {
-    return {
-      id: 'ai-answer',
-      title: '✨ AI Answer',
-      snippet: content.slice(0, 100) + '...',
-      content,
-      folder: 'AI Generated',
-      score: 1
-    };
-  }
-
-  /** Generate an AI answer from matching notes */
-  private async generateAnswer(
-    query: string,
-    notes: SearchResult[],
-    model: GenerativeModel
-  ): Promise<string | null> {
+  private buildPrompt(query: string, notes: SearchResult[]): string {
     const queryTokens = this.getQueryTokens(query);
     const context = notes
       .slice(0, 8)
@@ -224,7 +156,7 @@ export class SearchManager {
       })
       .join('\n\n---\n\n');
 
-    const prompt = `You are a helpful assistant that answers using ONLY the notes provided.
+    return `You are a helpful assistant that answers using ONLY the notes provided.
 Do not use outside knowledge. If the notes mention the query but lack a direct answer,
 say what the notes do mention and what is missing.
 If the question asks about a person or relationship (e.g., "who is", "can I trust",
@@ -250,9 +182,18 @@ ${context}
 Question: ${query}
 
 Answer now.`;
+  }
 
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+  /** Create an AI answer search result */
+  private createAiResult(content: string): SearchResult {
+    return {
+      id: 'ai-answer',
+      title: '✨ AI Answer',
+      snippet: content.slice(0, 100) + '...',
+      content,
+      folder: 'AI Generated',
+      score: 1
+    };
   }
 
   /**

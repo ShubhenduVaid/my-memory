@@ -232,7 +232,7 @@ async function initializeApp(): Promise<void> {
 
   // Initialize search
   const { geminiApiKey } = readUserConfig();
-  await searchManager.initialize(geminiApiKey);
+  await searchManager.initialize({ apiKey: geminiApiKey });
 }
 
 // Application lifecycle
@@ -366,7 +366,7 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
-  await searchManager.initialize(geminiApiKey);
+  await searchManager.initialize({ apiKey: geminiApiKey });
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 

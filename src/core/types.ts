@@ -72,3 +72,69 @@ export class PluginRegistry {
 
 /** Global plugin registry instance */
 export const pluginRegistry = new PluginRegistry();
+
+// ============================================================================
+// LLM Adapter Interface
+// ============================================================================
+
+/** Request for LLM text generation */
+export interface LLMRequest {
+  prompt: string;
+  maxTokens?: number;
+}
+
+/** Response from LLM generation */
+export interface LLMResponse {
+  text: string;
+  model: string;
+}
+
+/** Configuration for LLM adapters */
+export interface LLMConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+/**
+ * Interface that all LLM adapters must implement.
+ */
+export interface ILLMAdapter {
+  readonly name: string;
+  initialize(config: LLMConfig): Promise<void>;
+  generate(request: LLMRequest): Promise<LLMResponse>;
+  isAvailable(): boolean;
+}
+
+/** Registry for managing LLM adapters */
+export class LLMRegistry {
+  private adapters = new Map<string, ILLMAdapter>();
+  private current: ILLMAdapter | null = null;
+
+  register(adapter: ILLMAdapter): void {
+    this.adapters.set(adapter.name, adapter);
+  }
+
+  get(name: string): ILLMAdapter | undefined {
+    return this.adapters.get(name);
+  }
+
+  getAll(): ILLMAdapter[] {
+    return Array.from(this.adapters.values());
+  }
+
+  setCurrent(name: string): boolean {
+    const adapter = this.adapters.get(name);
+    if (adapter?.isAvailable()) {
+      this.current = adapter;
+      return true;
+    }
+    return false;
+  }
+
+  getCurrent(): ILLMAdapter | null {
+    return this.current;
+  }
+}
+
+export const llmRegistry = new LLMRegistry();
