@@ -177,7 +177,7 @@ body {
   display: flex;
   padding: 0 20px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
-  gap: 4px;
+  gap: 0;
 }
 
 .tab {
@@ -185,21 +185,21 @@ body {
   font-size: 13px;
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.5);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.tab:hover { color: rgba(255,255,255,0.9); }
+.tab:hover { color: rgba(255,255,255,0.8); }
 .tab.active {
   color: #fff;
   border-bottom-color: #f0c040;
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
 }
@@ -209,14 +209,17 @@ body {
 
 /* Settings Form Elements */
 .setting-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
+
+.setting-group:last-child { margin-bottom: 0; }
 
 .setting-group label {
   display: block;
   font-size: 12px;
+  font-weight: 500;
   color: rgba(255,255,255,0.7);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .setting-group select,
@@ -243,9 +246,10 @@ body {
 .input-row {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
-.input-row input { flex: 1; }
+.input-row input { flex: 1; min-width: 0; }
 
 .setting-header {
   display: flex;
@@ -263,7 +267,7 @@ body {
 
 /* Buttons */
 button {
-  padding: 8px 14px;
+  padding: 8px 12px;
   font-size: 12px;
   border: none;
   border-radius: 6px;
@@ -272,17 +276,19 @@ button {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 button:hover { background: #f5ca50; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-secondary {
   background: rgba(255,255,255,0.1);
-  color: #fff;
+  color: rgba(255,255,255,0.9);
 }
 
 .btn-secondary:hover { background: rgba(255,255,255,0.16); }
+.btn-secondary:disabled { opacity: 0.4; }
 
 /* Checkbox */
 .checkbox-label {
@@ -335,10 +341,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Status Text */
 .status-text {
   font-size: 11px;
-  color: rgba(255,255,255,0.6);
-  margin-top: 8px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 10px;
+  min-height: 14px;
 }
 
+.status-text:empty { display: none; }
 .status-text[data-state="set"] { color: #9bdc8c; }
 .status-text[data-state="error"] { color: #e57373; }
 
