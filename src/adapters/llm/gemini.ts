@@ -3,7 +3,7 @@
  */
 
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS } from '../../core/types';
 
 const DEFAULT_MODELS = [
   'gemini-2.5-flash',
@@ -40,7 +40,12 @@ export class GeminiAdapter implements ILLMAdapter {
     for (let i = 0; i < this.models.length; i++) {
       const idx = (this.modelIndex + i) % this.models.length;
       try {
-        const result = await this.models[idx].generateContent(request.prompt);
+        const result = await Promise.race([
+          this.models[idx].generateContent(request.prompt),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Gemini timeout')), LLM_TIMEOUT_MS)
+          ),
+        ]);
         this.modelIndex = (idx + 1) % this.models.length;
         return { text: result.response.text(), model: this.modelNames[idx] };
       } catch (error) {

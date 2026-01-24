@@ -77,6 +77,12 @@ export const pluginRegistry = new PluginRegistry();
 // LLM Adapter Interface
 // ============================================================================
 
+/** Default timeout for LLM requests (60 seconds) */
+export const LLM_TIMEOUT_MS = 60000;
+
+/** Extended timeout for local models like Ollama (120 seconds) */
+export const LLM_LOCAL_TIMEOUT_MS = 120000;
+
 /** Request for LLM text generation */
 export interface LLMRequest {
   prompt: string;
@@ -107,7 +113,7 @@ export interface ILLMAdapter {
   isAvailable(): boolean;
   getModels?(): string[];
   getCurrentModel?(): string;
-  setModel?(model: string): void;
+  setModel?(model: string): boolean;
 }
 
 /** Supported LLM providers */

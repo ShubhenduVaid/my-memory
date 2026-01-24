@@ -2,7 +2,7 @@
  * OpenRouter LLM adapter for accessing multiple models via OpenRouter API.
  */
 
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS } from '../../core/types';
 
 const DEFAULT_MODEL = 'deepseek/deepseek-r1-0528:free';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -13,7 +13,7 @@ export class OpenRouterAdapter implements ILLMAdapter {
   private model: string = DEFAULT_MODEL;
 
   async initialize(config: LLMConfig): Promise<void> {
-    this.apiKey = config.openrouterApiKey || config.apiKey || process.env.OPENROUTER_API_KEY || null;
+    this.apiKey = config.openrouterApiKey || process.env.OPENROUTER_API_KEY || null;
     this.model = config.model || DEFAULT_MODEL;
     if (!this.apiKey) {
       console.log('[OpenRouter] No API key - adapter disabled');
@@ -30,7 +30,7 @@ export class OpenRouterAdapter implements ILLMAdapter {
     if (!this.apiKey) throw new Error('OpenRouter not initialized');
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
     try {
       const response = await fetch(BASE_URL, {

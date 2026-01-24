@@ -2,7 +2,7 @@
  * Ollama LLM adapter for local model inference.
  */
 
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_LOCAL_TIMEOUT_MS } from '../../core/types';
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_MODEL = 'llama3.1';
@@ -58,17 +58,19 @@ export class OllamaAdapter implements ILLMAdapter {
     return this.model;
   }
 
-  setModel(model: string): void {
+  setModel(model: string): boolean {
     if (this.installedModels.includes(model)) {
       this.model = model;
+      return true;
     }
+    return false;
   }
 
   async generate(request: LLMRequest): Promise<LLMResponse> {
     if (!this.available) throw new Error('Ollama not available');
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    const timeout = setTimeout(() => controller.abort(), LLM_LOCAL_TIMEOUT_MS);
 
     try {
       const response = await fetch(`${this.baseUrl}/api/generate`, {
