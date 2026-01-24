@@ -230,3 +230,12 @@ body {
 #preview-content em { font-style: italic; }
 #preview-content ul { margin: 8px 0; padding-left: 20px; }
 #preview-content li { margin: 6px 0; }
+
+.streaming-cursor {
+  animation: blink 1s infinite;
+  color: #f0c040;
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

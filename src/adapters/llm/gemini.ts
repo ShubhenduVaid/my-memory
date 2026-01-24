@@ -3,7 +3,7 @@
  */
 
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS, LLMCapabilities } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS, LLMCapabilities, StreamCallback } from '../../core/types';
 
 const DEFAULT_MODELS = [
   'gemini-2.5-flash',
@@ -13,7 +13,7 @@ const DEFAULT_MODELS = [
 
 export class GeminiAdapter implements ILLMAdapter {
   readonly name = 'gemini';
-  readonly capabilities: LLMCapabilities = { supportsModelSelection: false, requiresApiKey: true };
+  readonly capabilities: LLMCapabilities = { supportsModelSelection: false, supportsStreaming: true, requiresApiKey: true };
   private models: GenerativeModel[] = [];
   private modelNames: string[] = [];
   private modelIndex = 0;
@@ -76,5 +76,26 @@ export class GeminiAdapter implements ILLMAdapter {
     this.modelNames = [];
     this.modelIndex = 0;
     this.currentModel = '';
+  }
+
+  async generateStream(request: LLMRequest, onChunk: StreamCallback): Promise<LLMResponse> {
+    if (!this.isAvailable()) throw new Error('Gemini not initialized');
+
+    const idx = this.modelIndex;
+    const model = this.models[idx];
+    
+    const result = await model.generateContentStream(request.prompt);
+    let fullText = '';
+
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) {
+        fullText += text;
+        onChunk(text);
+      }
+    }
+
+    this.modelIndex = (idx + 1) % this.models.length;
+    return { text: fullText, model: this.modelNames[idx] };
   }
 }

@@ -4,7 +4,7 @@
  */
 
 import { cache } from './cache';
-import { Note } from './types';
+import { Note, StreamCallback } from './types';
 import { LLMService } from './llm-service';
 
 /** Search result returned to the UI */
@@ -78,6 +78,37 @@ export class SearchManager {
     if (aiAnswer) {
       const provider = this.llmService?.getCurrentProvider() || 'AI';
       return [this.createAiResult(aiAnswer, provider), ...matches];
+    }
+
+    return matches;
+  }
+
+  /**
+   * Search with streaming AI answer.
+   * Calls onChunk for each piece of the AI response, returns final results.
+   */
+  async searchWithStream(query: string, onChunk: StreamCallback): Promise<SearchResult[]> {
+    const notes = cache.getAllNotes();
+    if (notes.length === 0) {
+      this.logEmptyCacheOnce('search');
+      return [];
+    }
+
+    const matches = this.smartSearch(query, notes);
+    if (matches.length === 0) {
+      return [];
+    }
+
+    if (!this.llmService?.isAvailable()) {
+      return matches;
+    }
+
+    const prompt = this.buildPrompt(query, matches);
+    const response = await this.llmService.generateStream({ prompt }, onChunk);
+    
+    if (response?.text) {
+      const provider = this.llmService.getCurrentProvider() || 'AI';
+      return [this.createAiResult(response.text, provider), ...matches];
     }
 
     return matches;

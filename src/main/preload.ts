@@ -73,7 +73,21 @@ const api = {
   ping: () => ipcRenderer.invoke('ping'),
 
   /** Open a note in Apple Notes */
-  openNote: (noteId: string) => ipcRenderer.send('open-note', noteId)
+  openNote: (noteId: string) => ipcRenderer.send('open-note', noteId),
+
+  /** Listen for search stream chunks */
+  onSearchStreamChunk: (callback: (chunk: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+    ipcRenderer.on('search-stream-chunk', handler);
+    return () => ipcRenderer.removeListener('search-stream-chunk', handler);
+  },
+
+  /** Listen for search stream completion */
+  onSearchStreamDone: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('search-stream-done', handler);
+    return () => ipcRenderer.removeListener('search-stream-done', handler);
+  }
 };
 
 contextBridge.exposeInMainWorld('api', Object.freeze(api));

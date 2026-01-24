@@ -95,6 +95,9 @@ export interface LLMResponse {
   model: string;
 }
 
+/** Callback for streaming chunks */
+export type StreamCallback = (chunk: string) => void;
+
 /** Configuration for LLM adapters */
 export interface LLMConfig {
   apiKey?: string;
@@ -106,6 +109,7 @@ export interface LLMConfig {
 /** Capabilities that an LLM adapter supports */
 export interface LLMCapabilities {
   supportsModelSelection: boolean;
+  supportsStreaming: boolean;
   requiresApiKey: boolean;
 }
 
@@ -117,6 +121,7 @@ export interface ILLMAdapter {
   readonly capabilities: LLMCapabilities;
   initialize(config: LLMConfig): Promise<void>;
   generate(request: LLMRequest): Promise<LLMResponse>;
+  generateStream?(request: LLMRequest, onChunk: StreamCallback): Promise<LLMResponse>;
   isAvailable(): boolean;
   getModels(): string[];
   getCurrentModel(): string;

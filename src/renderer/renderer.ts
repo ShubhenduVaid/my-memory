@@ -42,6 +42,8 @@ interface RendererApi {
   syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
+  onSearchStreamChunk?: (callback: (chunk: string) => void) => () => void;
+  onSearchStreamDone?: (callback: () => void) => () => void;
 }
 
 interface ObsidianConfig {
@@ -108,9 +110,48 @@ let localRecursiveEnabled = true;
 let notionHasToken = false;
 let currentLlmProvider = 'gemini';
 let providerInfoCache: ProviderInfo[] = [];
+let streamingContent = '';
+let isStreaming = false;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
+
+// Set up streaming listeners
+if (apiBridge?.onSearchStreamChunk) {
+  apiBridge.onSearchStreamChunk((chunk) => {
+    if (isStreaming) {
+      streamingContent += chunk;
+      // Update preview if AI answer is selected
+      if (selectedIndex === 0 && results[0]?.id === 'ai-streaming') {
+        previewContent.innerHTML = renderMarkdown(streamingContent) + '<span class="streaming-cursor">▊</span>';
+        previewContent.scrollTop = previewContent.scrollHeight;
+      }
+    }
+  });
+}
+
+if (apiBridge?.onSearchStreamDone) {
+  apiBridge.onSearchStreamDone(() => {
+    isStreaming = false;
+  });
+}
+
+/** Add streaming AI result to top of results list */
+function addStreamingAiResult(): void {
+  const streamingResult: SearchResult = {
+    id: 'ai-streaming',
+    title: '✨ AI Answer (streaming...)',
+    snippet: 'Generating response...',
+    content: '',
+    folder: 'AI Generated',
+    score: 1
+  };
+  
+  // Add to top of results, removing any existing streaming result
+  results = [streamingResult, ...results.filter(r => r.id !== 'ai-streaming' && r.id !== 'ai-answer')];
+  renderResults();
+  selectResult(0);
+}
 
 function formatQueryForLog(query: string): string {
   const normalized = query.replace(/\s+/g, ' ').trim();
@@ -727,18 +768,26 @@ function handleInput(): void {
     const requestId = ++aiRequestId;
     aiInFlight = true;
     setSearchStatus('Searching with AI...');
-    if (results.length === 0) showEmptyState('Searching with AI...');
     log(`search start len=${query.length} "${formatQueryForLog(query)}"`);
+    
+    // Start streaming mode - add streaming result to list
+    isStreaming = true;
+    streamingContent = '';
+    addStreamingAiResult();
+    previewContent.innerHTML = '<span class="streaming-cursor">▊</span>';
+    
     try {
       const aiResults = await apiBridge.search(query);
       log(
         `search done results=${aiResults.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
       );
+      isStreaming = false;
       if (requestId !== aiRequestId || searchInput.value.trim() !== query) return;
       applyResults(aiResults, true);
       setSearchStatus();
     } catch (error: unknown) {
       logError('search error', error);
+      isStreaming = false;
       if (requestId !== aiRequestId) return;
       if (results.length === 0) showEmptyState('Search failed (see logs)');
       setSearchStatus('AI search failed (see logs)');
@@ -856,8 +905,14 @@ function selectResult(index: number): void {
   const selected = results[selectedIndex];
   previewTitle.textContent = selected.title;
 
-  // Render markdown for AI answers
-  if (selected.id === 'ai-answer') {
+  // Handle streaming AI answer
+  if (selected.id === 'ai-streaming') {
+    if (streamingContent) {
+      previewContent.innerHTML = renderMarkdown(streamingContent) + '<span class="streaming-cursor">▊</span>';
+    } else {
+      previewContent.innerHTML = '<span class="streaming-cursor">▊</span>';
+    }
+  } else if (selected.id === 'ai-answer') {
     previewContent.innerHTML = renderMarkdown(selected.content || selected.snippet || '');
   } else {
     previewContent.textContent = selected.content || selected.snippet || '';

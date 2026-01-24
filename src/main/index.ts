@@ -350,19 +350,23 @@ function formatQueryForLog(query: string): { preview: string; length: number } {
 }
 
 // IPC handlers
-ipcMain.handle('search', async (_event, query: string) => {
+ipcMain.handle('search', async (event, query: string) => {
   const startedAt = Date.now();
   const { preview, length } = formatQueryForLog(query);
   console.log(`[IPC] search start len=${length} "${preview}"`);
 
   try {
-    const results = await searchManager.search(query);
+    const results = await searchManager.searchWithStream(query, (chunk) => {
+      event.sender.send('search-stream-chunk', chunk);
+    });
+    event.sender.send('search-stream-done');
     console.log(
       `[IPC] search done results=${results.length} (${Date.now() - startedAt}ms) len=${length} "${preview}"`
     );
     return results;
   } catch (error) {
     console.error(`[IPC] search error len=${length} "${preview}"`, error);
+    event.sender.send('search-stream-done');
     return [];
   }
 });
@@ -414,14 +418,18 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
-ipcMain.handle('get-llm-config', () => {
+ipcMain.handle('get-llm-config', async () => {
   const config = readUserConfig();
   return {
     provider: config.llmProvider || 'gemini',
     hasGeminiKey: Boolean(config.geminiApiKey),
     hasOpenrouterKey: Boolean(config.openrouterApiKey),
-    providers: llmService.getProviders(),
+    providers: await llmService.getProviders(),
   };
+});
+
+ipcMain.handle('get-llm-telemetry', () => {
+  return llmService.getTelemetry();
 });
 
 ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
