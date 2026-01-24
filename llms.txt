@@ -1,0 +1,48 @@
+# My Memory
+
+> Intelligent semantic search across your notes using AI
+
+## Overview
+
+My Memory is an open-source Electron desktop app that provides AI-powered semantic search across multiple note sources. It uses a spotlight-style UI (Cmd+Shift+Space) for quick access.
+
+## Key Features
+
+- Semantic search powered by Gemini AI
+- AI-generated answers from your notes
+- Apple Notes integration (macOS)
+- Obsidian vault integration
+- Local files (markdown, text, PDF)
+- Notion integration
+- Menu bar app
+- Plugin architecture for extensibility
+
+## Tech Stack
+
+- Electron
+- TypeScript
+- SQLite (local caching)
+- Gemini/OpenRouter/Ollama (LLM providers)
+
+## Links
+
+- Source: https://github.com/ShubhenduVaid/my-memory
+- Documentation: https://github.com/ShubhenduVaid/my-memory/tree/master/docs
+- Issues: https://github.com/ShubhenduVaid/my-memory/issues
+- License: MIT
+
+## Installation
+
+```bash
+npm install
+echo "GEMINI_API_KEY=your_key" > .env
+npm run start
+```
+
+## Architecture
+
+See /docs/ARCHITECTURE.md for detailed system design.
+
+## Contributing
+
+See /CONTRIBUTING.md for contribution guidelines.
