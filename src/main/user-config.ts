@@ -4,6 +4,8 @@ import { app, safeStorage } from 'electron';
 
 export interface UserConfig {
   geminiApiKey?: string;
+  openrouterApiKey?: string;
+  llmProvider?: 'gemini' | 'openrouter' | 'ollama';
   obsidian?: ObsidianConfig;
   local?: LocalConfig;
   notion?: NotionConfig;
@@ -28,6 +30,7 @@ const FILE_MODE = 0o600;
 interface StoredUserConfig extends UserConfig {
   secrets?: {
     geminiApiKey?: string;
+    openrouterApiKey?: string;
     notionToken?: string;
   };
 }
@@ -74,6 +77,8 @@ export function readUserConfig(): UserConfig {
 
     const result: UserConfig = {
       geminiApiKey: parsed.geminiApiKey,
+      openrouterApiKey: parsed.openrouterApiKey,
+      llmProvider: parsed.llmProvider,
       obsidian: parsed.obsidian,
       local: parsed.local,
       notion: parsed.notion ? { ...parsed.notion } : undefined
@@ -82,6 +87,11 @@ export function readUserConfig(): UserConfig {
     const decryptedGemini = decryptSecret(parsed.secrets?.geminiApiKey);
     if (decryptedGemini) {
       result.geminiApiKey = decryptedGemini;
+    }
+
+    const decryptedOpenrouter = decryptSecret(parsed.secrets?.openrouterApiKey);
+    if (decryptedOpenrouter) {
+      result.openrouterApiKey = decryptedOpenrouter;
     }
 
     const decryptedNotion = decryptSecret(parsed.secrets?.notionToken);
@@ -117,6 +127,8 @@ export function writeUserConfig(update: UserConfig): void {
     notion: nextNotion
   };
   if (!next.geminiApiKey) delete next.geminiApiKey;
+  if (!next.openrouterApiKey) delete next.openrouterApiKey;
+  if (!next.llmProvider) delete next.llmProvider;
   if (next.obsidian) {
     if (!next.obsidian.vaults || next.obsidian.vaults.length === 0) delete next.obsidian.vaults;
     if (!next.obsidian.vaults) delete next.obsidian;
@@ -141,6 +153,12 @@ export function writeUserConfig(update: UserConfig): void {
     delete stored.geminiApiKey;
   }
 
+  const encryptedOpenrouter = encryptSecret(next.openrouterApiKey);
+  if (encryptedOpenrouter) {
+    secrets.openrouterApiKey = encryptedOpenrouter;
+    delete stored.openrouterApiKey;
+  }
+
   const encryptedNotion = encryptSecret(next.notion?.token);
   if (encryptedNotion) {
     secrets.notionToken = encryptedNotion;
@@ -154,7 +172,7 @@ export function writeUserConfig(update: UserConfig): void {
     stored.secrets = secrets;
   }
 
-  if ((next.geminiApiKey || next.notion?.token) && !isEncryptionAvailable()) {
+  if ((next.geminiApiKey || next.openrouterApiKey || next.notion?.token) && !isEncryptionAvailable()) {
     console.warn('[Config] Encryption unavailable, storing secrets in plaintext');
   }
 

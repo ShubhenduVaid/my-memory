@@ -17,6 +17,9 @@ interface RendererApi {
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getLlmConfig: () => Promise<{ provider: string; hasGeminiKey: boolean; hasOpenrouterKey: boolean }>;
+  setLlmProvider: (provider: string) => Promise<{ ok: boolean; provider: string }>;
+  setOpenrouterKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
   getNotionConfig: () => Promise<{ hasToken: boolean }>;
   setNotionToken: (token: string | null) => Promise<{ ok: boolean; hasToken: boolean }>;
   syncNotionNow: () => Promise<{ ok: boolean }>;
@@ -73,6 +76,12 @@ const notionSave = document.getElementById('notion-save') as HTMLButtonElement;
 const notionClear = document.getElementById('notion-clear') as HTMLButtonElement;
 const notionSync = document.getElementById('notion-sync') as HTMLButtonElement;
 const notionStatus = document.getElementById('notion-status') as HTMLDivElement;
+const llmProviderSelect = document.getElementById('llm-provider') as HTMLSelectElement;
+const geminiKeyRow = document.getElementById('gemini-key-row') as HTMLDivElement;
+const openrouterKeyRow = document.getElementById('openrouter-key-row') as HTMLDivElement;
+const openrouterKeyInput = document.getElementById('openrouter-key-input') as HTMLInputElement;
+const openrouterKeySave = document.getElementById('openrouter-key-save') as HTMLButtonElement;
+const openrouterKeyClear = document.getElementById('openrouter-key-clear') as HTMLButtonElement;
 
 // State
 let selectedIndex = -1;
@@ -86,6 +95,7 @@ let obsidianVaultList: string[] = [];
 let localFolderList: string[] = [];
 let localRecursiveEnabled = true;
 let notionHasToken = false;
+let currentLlmProvider = 'gemini';
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -138,9 +148,18 @@ if (pingPromise) {
 }
 
 function setApiKeyStatus(hasKey: boolean, message?: string): void {
-  const base = hasKey ? 'AI key saved' : 'AI key not set';
+  const providerName = currentLlmProvider === 'ollama' ? 'Ollama (local)' : 
+    currentLlmProvider === 'openrouter' ? 'OpenRouter' : 'Gemini';
+  const base = currentLlmProvider === 'ollama' ? 'Using local Ollama' :
+    hasKey ? `${providerName} key saved` : `${providerName} key not set`;
   apiKeyStatus.textContent = message ? `${base} - ${message}` : base;
-  apiKeyStatus.dataset.state = hasKey ? 'set' : 'unset';
+  apiKeyStatus.dataset.state = currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset';
+}
+
+function updateLlmProviderUI(): void {
+  geminiKeyRow.style.display = currentLlmProvider === 'gemini' ? '' : 'none';
+  openrouterKeyRow.style.display = currentLlmProvider === 'openrouter' ? '' : 'none';
+  llmProviderSelect.value = currentLlmProvider;
 }
 
 function toggleApiKeyPanel(force?: boolean): void {
@@ -346,7 +365,21 @@ async function saveLocalConfig(): Promise<void> {
   }
 }
 
-if (apiBridge?.getGeminiKeyStatus) {
+if (apiBridge?.getLlmConfig) {
+  apiBridge
+    .getLlmConfig()
+    .then(({ provider, hasGeminiKey, hasOpenrouterKey }) => {
+      currentLlmProvider = provider;
+      updateLlmProviderUI();
+      const hasKey = provider === 'gemini' ? hasGeminiKey : 
+        provider === 'openrouter' ? hasOpenrouterKey : true;
+      setApiKeyStatus(hasKey);
+    })
+    .catch(error => {
+      setApiKeyStatus(false, 'status unavailable');
+      logError('getLlmConfig failed', error);
+    });
+} else if (apiBridge?.getGeminiKeyStatus) {
   apiBridge
     .getGeminiKeyStatus()
     .then(({ hasKey }) => setApiKeyStatus(hasKey))
@@ -410,6 +443,57 @@ apiKeyClear.addEventListener('click', async () => {
 });
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
+});
+openrouterKeyInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') openrouterKeySave.click();
+});
+llmProviderSelect.addEventListener('change', async () => {
+  const provider = llmProviderSelect.value;
+  if (!apiBridge?.setLlmProvider) return;
+  try {
+    const result = await apiBridge.setLlmProvider(provider);
+    currentLlmProvider = result.provider;
+    updateLlmProviderUI();
+    const config = await apiBridge.getLlmConfig?.();
+    const hasKey = provider === 'gemini' ? config?.hasGeminiKey : 
+      provider === 'openrouter' ? config?.hasOpenrouterKey : true;
+    setApiKeyStatus(hasKey ?? false, 'provider changed');
+  } catch (error) {
+    logError('setLlmProvider failed', error);
+  }
+});
+openrouterKeySave.addEventListener('click', async () => {
+  if (!apiBridge?.setOpenrouterKey) return;
+  const key = openrouterKeyInput.value.trim();
+  if (!key) {
+    setApiKeyStatus(false, 'enter a key to save');
+    return;
+  }
+  openrouterKeySave.disabled = true;
+  try {
+    const result = await apiBridge.setOpenrouterKey(key);
+    setApiKeyStatus(result.hasKey, 'saved');
+    openrouterKeyInput.value = '';
+  } catch (error) {
+    logError('setOpenrouterKey failed', error);
+    setApiKeyStatus(false, 'save failed');
+  } finally {
+    openrouterKeySave.disabled = false;
+  }
+});
+openrouterKeyClear.addEventListener('click', async () => {
+  if (!apiBridge?.setOpenrouterKey) return;
+  openrouterKeyClear.disabled = true;
+  try {
+    const result = await apiBridge.setOpenrouterKey(null);
+    setApiKeyStatus(result.hasKey, 'cleared');
+    openrouterKeyInput.value = '';
+  } catch (error) {
+    logError('clearOpenrouterKey failed', error);
+    setApiKeyStatus(false, 'clear failed');
+  } finally {
+    openrouterKeyClear.disabled = false;
+  }
 });
 notionTokenInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') notionSave.click();

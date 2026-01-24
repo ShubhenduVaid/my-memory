@@ -366,8 +366,42 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
-  await searchManager.initialize({ apiKey: geminiApiKey });
+  const config = readUserConfig();
+  await searchManager.initialize({ apiKey: config.geminiApiKey, provider: config.llmProvider });
   return { ok: true, hasKey: Boolean(geminiApiKey) };
+});
+
+ipcMain.handle('get-llm-config', () => {
+  const config = readUserConfig();
+  return {
+    provider: config.llmProvider || 'gemini',
+    hasGeminiKey: Boolean(config.geminiApiKey),
+    hasOpenrouterKey: Boolean(config.openrouterApiKey),
+  };
+});
+
+ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
+  if (!['gemini', 'openrouter', 'ollama'].includes(provider)) {
+    return { ok: false, error: 'Invalid provider' };
+  }
+  writeUserConfig({ llmProvider: provider as 'gemini' | 'openrouter' | 'ollama' });
+  const config = readUserConfig();
+  await searchManager.initialize({
+    apiKey: provider === 'openrouter' ? config.openrouterApiKey : config.geminiApiKey,
+    provider: config.llmProvider,
+  });
+  return { ok: true, provider };
+});
+
+ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | undefined) => {
+  const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
+  const openrouterApiKey = trimmed.length > 0 ? trimmed : undefined;
+  writeUserConfig({ openrouterApiKey });
+  const config = readUserConfig();
+  if (config.llmProvider === 'openrouter') {
+    await searchManager.initialize({ apiKey: openrouterApiKey, provider: 'openrouter' });
+  }
+  return { ok: true, hasKey: Boolean(openrouterApiKey) };
 });
 
 ipcMain.handle('notion-get-config', () => {

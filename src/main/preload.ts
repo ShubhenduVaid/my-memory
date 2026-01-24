@@ -20,6 +20,15 @@ const api = {
   /** Set or clear the Gemini API key */
   setGeminiKey: (apiKey: string | null) => ipcRenderer.invoke('set-gemini-key', apiKey),
 
+  /** Get LLM provider config */
+  getLlmConfig: () => ipcRenderer.invoke('get-llm-config'),
+
+  /** Set LLM provider */
+  setLlmProvider: (provider: string) => ipcRenderer.invoke('set-llm-provider', provider),
+
+  /** Set OpenRouter API key */
+  setOpenrouterKey: (apiKey: string | null) => ipcRenderer.invoke('set-openrouter-key', apiKey),
+
   /** Check whether a Notion token is configured */
   getNotionConfig: () => ipcRenderer.invoke('notion-get-config'),
 

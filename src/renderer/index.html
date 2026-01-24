@@ -17,9 +17,24 @@
         <button id="notion-toggle" type="button" title="Connect Notion">Notion</button>
       </div>
       <div id="api-key-panel">
-        <input type="password" id="api-key-input" placeholder="Paste your Gemini API key" autocomplete="off">
-        <button id="api-key-save" type="button">Save</button>
-        <button id="api-key-clear" type="button">Clear</button>
+        <div class="panel-row">
+          <label for="llm-provider">Provider:</label>
+          <select id="llm-provider">
+            <option value="gemini">Gemini</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">Ollama (local)</option>
+          </select>
+        </div>
+        <div id="gemini-key-row" class="panel-row">
+          <input type="password" id="api-key-input" placeholder="Gemini API key" autocomplete="off">
+          <button id="api-key-save" type="button">Save</button>
+          <button id="api-key-clear" type="button">Clear</button>
+        </div>
+        <div id="openrouter-key-row" class="panel-row" style="display:none;">
+          <input type="password" id="openrouter-key-input" placeholder="OpenRouter API key" autocomplete="off">
+          <button id="openrouter-key-save" type="button">Save</button>
+          <button id="openrouter-key-clear" type="button">Clear</button>
+        </div>
         <div id="api-key-status"></div>
       </div>
       <div id="obsidian-panel">
