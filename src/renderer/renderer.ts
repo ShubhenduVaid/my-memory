@@ -908,7 +908,7 @@ function handleInput(): void {
     const startedAt = performance.now();
     const requestId = ++aiRequestId;
     aiInFlight = true;
-    setSearchStatus('Searching with AI...');
+    setSearchStatus('Generating AI answer...');
     log(`search start len=${query.length} "${formatQueryForLog(query)}"`);
     
     // Start streaming mode - add streaming result to list
