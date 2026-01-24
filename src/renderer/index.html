@@ -38,10 +38,22 @@
         <button id="settings-close" class="modal-close" title="Close">&times;</button>
       </div>
       <div class="modal-tabs">
-        <button class="tab active" data-tab="ai">AI Provider</button>
-        <button class="tab" data-tab="obsidian">Obsidian</button>
-        <button class="tab" data-tab="local">Local Files</button>
-        <button class="tab" data-tab="notion">Notion</button>
+        <button class="tab active" data-tab="ai">
+          <span class="tab-label">AI Provider</span>
+          <span class="tab-status" id="tab-status-ai"></span>
+        </button>
+        <button class="tab" data-tab="obsidian">
+          <span class="tab-label">Obsidian</span>
+          <span class="tab-status" id="tab-status-obsidian"></span>
+        </button>
+        <button class="tab" data-tab="local">
+          <span class="tab-label">Local</span>
+          <span class="tab-status" id="tab-status-local"></span>
+        </button>
+        <button class="tab" data-tab="notion">
+          <span class="tab-label">Notion</span>
+          <span class="tab-status" id="tab-status-notion"></span>
+        </button>
       </div>
       <div class="modal-body">
         <!-- AI Provider Tab -->
@@ -81,13 +93,16 @@
         <div id="tab-obsidian" class="tab-content">
           <div class="setting-group">
             <div class="setting-header">
-              <span id="obsidian-status">No vaults selected</span>
+              <span id="obsidian-status">No vaults connected</span>
               <div class="btn-group">
-                <button id="obsidian-add" type="button">Add Vault</button>
+                <button id="obsidian-add" type="button">+ Add Vault</button>
                 <button id="obsidian-sync" type="button" class="btn-secondary" disabled>Sync</button>
               </div>
             </div>
             <div id="obsidian-vaults" class="item-list"></div>
+            <div id="obsidian-empty" class="empty-hint">
+              Add your Obsidian vault folders to search across your notes.
+            </div>
           </div>
         </div>
 
@@ -95,9 +110,9 @@
         <div id="tab-local" class="tab-content">
           <div class="setting-group">
             <div class="setting-header">
-              <span id="local-status">No folders selected</span>
+              <span id="local-status">No folders connected</span>
               <div class="btn-group">
-                <button id="local-add" type="button">Add Folder</button>
+                <button id="local-add" type="button">+ Add Folder</button>
                 <button id="local-sync" type="button" class="btn-secondary" disabled>Sync</button>
               </div>
             </div>
@@ -106,6 +121,9 @@
               <span>Include subfolders</span>
             </label>
             <div id="local-folders" class="item-list"></div>
+            <div id="local-empty" class="empty-hint">
+              Add folders containing .md, .txt, or .pdf files to index.
+            </div>
           </div>
         </div>
 
@@ -114,12 +132,17 @@
           <div class="setting-group">
             <label for="notion-token-input">Integration Token</label>
             <div class="input-row">
-              <input type="password" id="notion-token-input" placeholder="Paste your Notion integration token" autocomplete="off">
+              <input type="password" id="notion-token-input" placeholder="Paste your integration token" autocomplete="off">
               <button id="notion-save" type="button">Save</button>
               <button id="notion-clear" type="button" class="btn-secondary">Clear</button>
-              <button id="notion-sync" type="button" class="btn-secondary" disabled>Sync</button>
             </div>
             <div id="notion-status" class="status-text"></div>
+          </div>
+          <div class="setting-group">
+            <button id="notion-sync" type="button" class="btn-full" disabled>Sync Notion Pages</button>
+          </div>
+          <div id="notion-empty" class="empty-hint">
+            Create an integration at notion.so/my-integrations and share pages with it.
           </div>
         </div>
       </div>

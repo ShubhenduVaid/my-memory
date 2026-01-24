@@ -70,6 +70,17 @@ const modalBackdrop = settingsModal.querySelector('.modal-backdrop') as HTMLDivE
 const modalTabs = settingsModal.querySelectorAll('.tab') as NodeListOf<HTMLButtonElement>;
 const toastContainer = document.getElementById('toast-container') as HTMLDivElement;
 
+// Tab status indicators
+const tabStatusAi = document.getElementById('tab-status-ai') as HTMLSpanElement;
+const tabStatusObsidian = document.getElementById('tab-status-obsidian') as HTMLSpanElement;
+const tabStatusLocal = document.getElementById('tab-status-local') as HTMLSpanElement;
+const tabStatusNotion = document.getElementById('tab-status-notion') as HTMLSpanElement;
+
+// Empty state hints
+const obsidianEmpty = document.getElementById('obsidian-empty') as HTMLDivElement;
+const localEmpty = document.getElementById('local-empty') as HTMLDivElement;
+const notionEmpty = document.getElementById('notion-empty') as HTMLDivElement;
+
 // AI settings
 const apiKeyInput = document.getElementById('api-key-input') as HTMLInputElement;
 const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
@@ -225,6 +236,10 @@ function setApiKeyStatus(hasKey: boolean, message?: string): void {
   apiKeyStatus.textContent = message ? `${base} - ${message}` : base;
   apiKeyStatus.dataset.state = provider?.error ? 'error' : 
     (currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset');
+  
+  // Update tab status indicator
+  const isConnected = currentLlmProvider === 'ollama' || hasKey;
+  tabStatusAi.classList.toggle('connected', isConnected);
 }
 
 // Toast notification system
@@ -312,6 +327,10 @@ function setNotionStatus(hasToken: boolean, message?: string): void {
   const base = hasToken ? 'Token saved' : 'Token not set';
   notionStatus.textContent = message ? `${base} - ${message}` : base;
   notionStatus.dataset.state = hasToken ? 'set' : 'unset';
+  
+  // Update tab status and empty hint
+  tabStatusNotion.classList.toggle('connected', hasToken);
+  notionEmpty.classList.toggle('hidden', hasToken);
 }
 
 function updateNotionControls(): void {
@@ -324,31 +343,36 @@ function setObsidianStatus(message: string): void {
 }
 
 function renderObsidianVaults(): void {
-  if (obsidianVaultList.length === 0) {
+  const hasVaults = obsidianVaultList.length > 0;
+  
+  if (!hasVaults) {
     obsidianVaults.innerHTML = '';
     obsidianSync.disabled = true;
-    setObsidianStatus('No vaults selected');
-    return;
-  }
+    setObsidianStatus('No vaults connected');
+  } else {
+    obsidianSync.disabled = false;
+    setObsidianStatus(`${obsidianVaultList.length} vault${obsidianVaultList.length === 1 ? '' : 's'} connected`);
+    obsidianVaults.innerHTML = obsidianVaultList
+      .map(vault => `
+        <div class="item-row">
+          <div class="item-path" title="${escapeHtml(vault)}">${escapeHtml(vault)}</div>
+          <button class="item-remove btn-secondary" data-path="${encodeURIComponent(vault)}">Remove</button>
+        </div>
+      `)
+      .join('');
 
-  obsidianSync.disabled = false;
-  setObsidianStatus(`${obsidianVaultList.length} vault${obsidianVaultList.length === 1 ? '' : 's'} selected`);
-  obsidianVaults.innerHTML = obsidianVaultList
-    .map(vault => `
-      <div class="item-row">
-        <div class="item-path" title="${escapeHtml(vault)}">${escapeHtml(vault)}</div>
-        <button class="item-remove btn-secondary" data-path="${encodeURIComponent(vault)}">Remove</button>
-      </div>
-    `)
-    .join('');
-
-  obsidianVaults.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
-    button.addEventListener('click', () => {
-      const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
-      obsidianVaultList = obsidianVaultList.filter(path => path !== decoded);
-      saveObsidianConfig();
+    obsidianVaults.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
+      button.addEventListener('click', () => {
+        const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
+        obsidianVaultList = obsidianVaultList.filter(path => path !== decoded);
+        saveObsidianConfig();
+      });
     });
-  });
+  }
+  
+  // Update tab status and empty hint
+  tabStatusObsidian.classList.toggle('connected', hasVaults);
+  obsidianEmpty.classList.toggle('hidden', hasVaults);
 }
 
 function setLocalStatus(message: string): void {
@@ -356,31 +380,36 @@ function setLocalStatus(message: string): void {
 }
 
 function renderLocalFolders(): void {
-  if (localFolderList.length === 0) {
+  const hasFolders = localFolderList.length > 0;
+  
+  if (!hasFolders) {
     localFolders.innerHTML = '';
-    setLocalStatus('No folders selected');
+    setLocalStatus('No folders connected');
     localSync.disabled = true;
-    return;
-  }
+  } else {
+    setLocalStatus(`${localFolderList.length} folder${localFolderList.length === 1 ? '' : 's'} connected`);
+    localSync.disabled = false;
+    localFolders.innerHTML = localFolderList
+      .map(folder => `
+        <div class="item-row">
+          <div class="item-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
+          <button class="item-remove btn-secondary" data-path="${encodeURIComponent(folder)}">Remove</button>
+        </div>
+      `)
+      .join('');
 
-  setLocalStatus(`${localFolderList.length} folder${localFolderList.length === 1 ? '' : 's'} selected`);
-  localSync.disabled = false;
-  localFolders.innerHTML = localFolderList
-    .map(folder => `
-      <div class="item-row">
-        <div class="item-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
-        <button class="item-remove btn-secondary" data-path="${encodeURIComponent(folder)}">Remove</button>
-      </div>
-    `)
-    .join('');
-
-  localFolders.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
-    button.addEventListener('click', () => {
-      const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
-      localFolderList = localFolderList.filter(path => path !== decoded);
-      saveLocalConfig();
+    localFolders.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
+      button.addEventListener('click', () => {
+        const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
+        localFolderList = localFolderList.filter(path => path !== decoded);
+        saveLocalConfig();
+      });
     });
-  });
+  }
+  
+  // Update tab status and empty hint
+  tabStatusLocal.classList.toggle('connected', hasFolders);
+  localEmpty.classList.toggle('hidden', hasFolders);
 }
 
 async function refreshNotionConfig(): Promise<void> {
