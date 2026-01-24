@@ -60,33 +60,21 @@ const searchInput = document.getElementById('search') as HTMLInputElement;
 const resultsList = document.getElementById('results-list') as HTMLDivElement;
 const previewTitle = document.getElementById('preview-title') as HTMLDivElement;
 const previewContent = document.getElementById('preview-content') as HTMLDivElement;
-const apiKeyToggle = document.getElementById('api-key-toggle') as HTMLButtonElement;
-const apiKeyPanel = document.getElementById('api-key-panel') as HTMLDivElement;
+const searchStatus = document.getElementById('search-status') as HTMLDivElement;
+
+// Settings modal elements
+const settingsToggle = document.getElementById('settings-toggle') as HTMLButtonElement;
+const settingsModal = document.getElementById('settings-modal') as HTMLDivElement;
+const settingsClose = document.getElementById('settings-close') as HTMLButtonElement;
+const modalBackdrop = settingsModal.querySelector('.modal-backdrop') as HTMLDivElement;
+const modalTabs = settingsModal.querySelectorAll('.tab') as NodeListOf<HTMLButtonElement>;
+const toastContainer = document.getElementById('toast-container') as HTMLDivElement;
+
+// AI settings
 const apiKeyInput = document.getElementById('api-key-input') as HTMLInputElement;
 const apiKeySave = document.getElementById('api-key-save') as HTMLButtonElement;
 const apiKeyClear = document.getElementById('api-key-clear') as HTMLButtonElement;
 const apiKeyStatus = document.getElementById('api-key-status') as HTMLDivElement;
-const searchStatus = document.getElementById('search-status') as HTMLDivElement;
-const obsidianToggle = document.getElementById('obsidian-toggle') as HTMLButtonElement;
-const obsidianPanel = document.getElementById('obsidian-panel') as HTMLDivElement;
-const obsidianStatus = document.getElementById('obsidian-status') as HTMLDivElement;
-const obsidianAdd = document.getElementById('obsidian-add') as HTMLButtonElement;
-const obsidianSync = document.getElementById('obsidian-sync') as HTMLButtonElement;
-const obsidianVaults = document.getElementById('obsidian-vaults') as HTMLDivElement;
-const localToggle = document.getElementById('local-toggle') as HTMLButtonElement;
-const localPanel = document.getElementById('local-panel') as HTMLDivElement;
-const localStatus = document.getElementById('local-status') as HTMLDivElement;
-const localAdd = document.getElementById('local-add') as HTMLButtonElement;
-const localSync = document.getElementById('local-sync') as HTMLButtonElement;
-const localRecursive = document.getElementById('local-recursive') as HTMLInputElement;
-const localFolders = document.getElementById('local-folders') as HTMLDivElement;
-const notionToggle = document.getElementById('notion-toggle') as HTMLButtonElement;
-const notionPanel = document.getElementById('notion-panel') as HTMLDivElement;
-const notionTokenInput = document.getElementById('notion-token-input') as HTMLInputElement;
-const notionSave = document.getElementById('notion-save') as HTMLButtonElement;
-const notionClear = document.getElementById('notion-clear') as HTMLButtonElement;
-const notionSync = document.getElementById('notion-sync') as HTMLButtonElement;
-const notionStatus = document.getElementById('notion-status') as HTMLDivElement;
 const llmProviderSelect = document.getElementById('llm-provider') as HTMLSelectElement;
 const geminiKeyRow = document.getElementById('gemini-key-row') as HTMLDivElement;
 const openrouterKeyRow = document.getElementById('openrouter-key-row') as HTMLDivElement;
@@ -95,6 +83,26 @@ const openrouterKeySave = document.getElementById('openrouter-key-save') as HTML
 const openrouterKeyClear = document.getElementById('openrouter-key-clear') as HTMLButtonElement;
 const ollamaModelRow = document.getElementById('ollama-model-row') as HTMLDivElement;
 const ollamaModelSelect = document.getElementById('ollama-model') as HTMLSelectElement;
+
+// Obsidian settings
+const obsidianStatus = document.getElementById('obsidian-status') as HTMLDivElement;
+const obsidianAdd = document.getElementById('obsidian-add') as HTMLButtonElement;
+const obsidianSync = document.getElementById('obsidian-sync') as HTMLButtonElement;
+const obsidianVaults = document.getElementById('obsidian-vaults') as HTMLDivElement;
+
+// Local files settings
+const localStatus = document.getElementById('local-status') as HTMLDivElement;
+const localAdd = document.getElementById('local-add') as HTMLButtonElement;
+const localSync = document.getElementById('local-sync') as HTMLButtonElement;
+const localRecursive = document.getElementById('local-recursive') as HTMLInputElement;
+const localFolders = document.getElementById('local-folders') as HTMLDivElement;
+
+// Notion settings
+const notionTokenInput = document.getElementById('notion-token-input') as HTMLInputElement;
+const notionSave = document.getElementById('notion-save') as HTMLButtonElement;
+const notionClear = document.getElementById('notion-clear') as HTMLButtonElement;
+const notionSync = document.getElementById('notion-sync') as HTMLButtonElement;
+const notionStatus = document.getElementById('notion-status') as HTMLDivElement;
 
 // State
 let selectedIndex = -1;
@@ -219,6 +227,37 @@ function setApiKeyStatus(hasKey: boolean, message?: string): void {
     (currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset');
 }
 
+// Toast notification system
+function showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => toast.remove(), 200);
+  }, 2500);
+}
+
+// Settings modal functions
+function openSettingsModal(): void {
+  settingsModal.classList.remove('hidden');
+  searchInput.blur();
+}
+
+function closeSettingsModal(): void {
+  settingsModal.classList.add('hidden');
+  searchInput.focus();
+}
+
+function switchTab(tabName: string): void {
+  modalTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabName));
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `tab-${tabName}`);
+  });
+}
+
 function updateProviderDropdown(): void {
   const options = [
     { value: 'gemini', label: 'Gemini' },
@@ -269,14 +308,8 @@ async function refreshOllamaModels(): Promise<void> {
   }
 }
 
-function toggleApiKeyPanel(force?: boolean): void {
-  const show = typeof force === 'boolean' ? force : !apiKeyPanel.classList.contains('is-open');
-  apiKeyPanel.classList.toggle('is-open', show);
-  if (show) apiKeyInput.focus();
-}
-
 function setNotionStatus(hasToken: boolean, message?: string): void {
-  const base = hasToken ? 'Notion token saved' : 'Notion token not set';
+  const base = hasToken ? 'Token saved' : 'Token not set';
   notionStatus.textContent = message ? `${base} - ${message}` : base;
   notionStatus.dataset.state = hasToken ? 'set' : 'unset';
 }
@@ -284,17 +317,6 @@ function setNotionStatus(hasToken: boolean, message?: string): void {
 function updateNotionControls(): void {
   notionClear.disabled = !notionHasToken;
   notionSync.disabled = !notionHasToken;
-}
-
-function toggleNotionPanel(force?: boolean): void {
-  const show = typeof force === 'boolean' ? force : !notionPanel.classList.contains('is-open');
-  notionPanel.classList.toggle('is-open', show);
-  if (show) notionTokenInput.focus();
-}
-
-function toggleObsidianPanel(force?: boolean): void {
-  const show = typeof force === 'boolean' ? force : !obsidianPanel.classList.contains('is-open');
-  obsidianPanel.classList.toggle('is-open', show);
 }
 
 function setObsidianStatus(message: string): void {
@@ -312,29 +334,21 @@ function renderObsidianVaults(): void {
   obsidianSync.disabled = false;
   setObsidianStatus(`${obsidianVaultList.length} vault${obsidianVaultList.length === 1 ? '' : 's'} selected`);
   obsidianVaults.innerHTML = obsidianVaultList
-    .map(
-      vault => `
-        <div class="obsidian-vault">
-          <div class="obsidian-vault-path" title="${escapeHtml(vault)}">${escapeHtml(vault)}</div>
-          <button class="obsidian-remove" data-path="${encodeURIComponent(vault)}">Remove</button>
-        </div>
-      `
-    )
+    .map(vault => `
+      <div class="item-row">
+        <div class="item-path" title="${escapeHtml(vault)}">${escapeHtml(vault)}</div>
+        <button class="item-remove btn-secondary" data-path="${encodeURIComponent(vault)}">Remove</button>
+      </div>
+    `)
     .join('');
 
-  obsidianVaults.querySelectorAll<HTMLButtonElement>('.obsidian-remove').forEach(button => {
+  obsidianVaults.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
     button.addEventListener('click', () => {
-      const encoded = button.getAttribute('data-path') || '';
-      const decoded = decodeURIComponent(encoded);
+      const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
       obsidianVaultList = obsidianVaultList.filter(path => path !== decoded);
       saveObsidianConfig();
     });
   });
-}
-
-function toggleLocalPanel(force?: boolean): void {
-  const show = typeof force === 'boolean' ? force : !localPanel.classList.contains('is-open');
-  localPanel.classList.toggle('is-open', show);
 }
 
 function setLocalStatus(message: string): void {
@@ -352,20 +366,17 @@ function renderLocalFolders(): void {
   setLocalStatus(`${localFolderList.length} folder${localFolderList.length === 1 ? '' : 's'} selected`);
   localSync.disabled = false;
   localFolders.innerHTML = localFolderList
-    .map(
-      folder => `
-        <div class="local-folder">
-          <div class="local-folder-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
-          <button class="local-remove" data-path="${encodeURIComponent(folder)}">Remove</button>
-        </div>
-      `
-    )
+    .map(folder => `
+      <div class="item-row">
+        <div class="item-path" title="${escapeHtml(folder)}">${escapeHtml(folder)}</div>
+        <button class="item-remove btn-secondary" data-path="${encodeURIComponent(folder)}">Remove</button>
+      </div>
+    `)
     .join('');
 
-  localFolders.querySelectorAll<HTMLButtonElement>('.local-remove').forEach(button => {
+  localFolders.querySelectorAll<HTMLButtonElement>('.item-remove').forEach(button => {
     button.addEventListener('click', () => {
-      const encoded = button.getAttribute('data-path') || '';
-      const decoded = decodeURIComponent(encoded);
+      const decoded = decodeURIComponent(button.getAttribute('data-path') || '');
       localFolderList = localFolderList.filter(path => path !== decoded);
       saveLocalConfig();
     });
@@ -506,61 +517,75 @@ refreshNotionConfig();
 // Event listeners
 searchInput.addEventListener('input', handleInput);
 window.addEventListener('keydown', handleKeydown);
-apiKeyToggle.addEventListener('click', () => toggleApiKeyPanel());
-obsidianToggle.addEventListener('click', () => toggleObsidianPanel());
-localToggle.addEventListener('click', () => toggleLocalPanel());
-notionToggle.addEventListener('click', () => toggleNotionPanel());
+
+// Settings modal events
+settingsToggle.addEventListener('click', openSettingsModal);
+settingsClose.addEventListener('click', closeSettingsModal);
+modalBackdrop.addEventListener('click', closeSettingsModal);
+modalTabs.forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab || 'ai'));
+});
+
+// Close modal on Escape
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) {
+    closeSettingsModal();
+  }
+});
+
 apiKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setGeminiKey) {
-    setApiKeyStatus(false, 'API unavailable');
+    showToast('API unavailable', 'error');
     return;
   }
   const key = apiKeyInput.value.trim();
   if (!key) {
-    setApiKeyStatus(false, 'enter a key to save');
+    showToast('Enter a key to save', 'error');
     return;
   }
   apiKeySave.disabled = true;
   try {
     const result = await apiBridge.setGeminiKey(key);
-    setApiKeyStatus(result.hasKey, 'saved');
+    setApiKeyStatus(result.hasKey);
     apiKeyInput.value = '';
+    showToast('Gemini key saved', 'success');
   } catch (error: unknown) {
     logError('setGeminiKey failed', error);
-    setApiKeyStatus(false, 'save failed');
+    showToast('Failed to save key', 'error');
   } finally {
     apiKeySave.disabled = false;
   }
 });
+
 apiKeyClear.addEventListener('click', async () => {
-  if (!apiBridge?.setGeminiKey) {
-    setApiKeyStatus(false, 'API unavailable');
-    return;
-  }
+  if (!apiBridge?.setGeminiKey) return;
   apiKeyClear.disabled = true;
   try {
     const result = await apiBridge.setGeminiKey(null);
-    setApiKeyStatus(result.hasKey, 'cleared');
+    setApiKeyStatus(result.hasKey);
     apiKeyInput.value = '';
+    showToast('Gemini key cleared', 'info');
   } catch (error: unknown) {
     logError('clearGeminiKey failed', error);
-    setApiKeyStatus(false, 'clear failed');
+    showToast('Failed to clear key', 'error');
   } finally {
     apiKeyClear.disabled = false;
   }
 });
+
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
 });
+
 openrouterKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') openrouterKeySave.click();
 });
+
 llmProviderSelect.addEventListener('change', async () => {
   const provider = llmProviderSelect.value;
   if (!apiBridge?.setLlmProvider) return;
   
   llmProviderSelect.disabled = true;
-  setApiKeyStatus(false, 'switching...');
   
   try {
     const result = await apiBridge.setLlmProvider(provider);
@@ -571,93 +596,110 @@ llmProviderSelect.addEventListener('change', async () => {
     const hasKey = provider === 'gemini' ? config?.hasGeminiKey : 
       provider === 'openrouter' ? config?.hasOpenrouterKey : true;
     setApiKeyStatus(hasKey ?? false);
+    showToast(`Switched to ${provider}`, 'success');
   } catch (error) {
     logError('setLlmProvider failed', error);
-    setApiKeyStatus(false, 'switch failed');
+    showToast('Failed to switch provider', 'error');
   } finally {
     llmProviderSelect.disabled = false;
   }
 });
+
 openrouterKeySave.addEventListener('click', async () => {
   if (!apiBridge?.setOpenrouterKey) return;
   const key = openrouterKeyInput.value.trim();
   if (!key) {
-    setApiKeyStatus(false, 'enter a key to save');
+    showToast('Enter a key to save', 'error');
     return;
   }
   openrouterKeySave.disabled = true;
   try {
     const result = await apiBridge.setOpenrouterKey(key);
-    setApiKeyStatus(result.hasKey, 'saved');
+    setApiKeyStatus(result.hasKey);
     openrouterKeyInput.value = '';
+    showToast('OpenRouter key saved', 'success');
   } catch (error) {
     logError('setOpenrouterKey failed', error);
-    setApiKeyStatus(false, 'save failed');
+    showToast('Failed to save key', 'error');
   } finally {
     openrouterKeySave.disabled = false;
   }
 });
+
 openrouterKeyClear.addEventListener('click', async () => {
   if (!apiBridge?.setOpenrouterKey) return;
   openrouterKeyClear.disabled = true;
   try {
     const result = await apiBridge.setOpenrouterKey(null);
-    setApiKeyStatus(result.hasKey, 'cleared');
+    setApiKeyStatus(result.hasKey);
     openrouterKeyInput.value = '';
+    showToast('OpenRouter key cleared', 'info');
   } catch (error) {
     logError('clearOpenrouterKey failed', error);
-    setApiKeyStatus(false, 'clear failed');
+    showToast('Failed to clear key', 'error');
   } finally {
     openrouterKeyClear.disabled = false;
   }
 });
+
 ollamaModelSelect.addEventListener('change', async () => {
   if (!apiBridge?.setOllamaModel) return;
   const model = ollamaModelSelect.value;
   try {
     await apiBridge.setOllamaModel(model);
     setApiKeyStatus(true, `using ${model}`);
+    showToast(`Using ${model}`, 'success');
   } catch (error) {
     logError('setOllamaModel failed', error);
+    showToast('Failed to set model', 'error');
   }
 });
+
 notionTokenInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') notionSave.click();
 });
+
 notionSave.addEventListener('click', async () => {
   const token = notionTokenInput.value.trim();
   if (!token) {
-    setNotionStatus(notionHasToken, 'enter a token to save');
+    showToast('Enter a token to save', 'error');
     return;
   }
   notionSave.disabled = true;
   try {
     await updateNotionToken(token);
     notionTokenInput.value = '';
+    showToast('Notion token saved', 'success');
   } finally {
     notionSave.disabled = false;
   }
 });
+
 notionClear.addEventListener('click', async () => {
   notionClear.disabled = true;
   try {
     await updateNotionToken(null);
     notionTokenInput.value = '';
+    showToast('Notion token cleared', 'info');
   } finally {
     notionClear.disabled = false;
   }
 });
+
 notionSync.addEventListener('click', async () => {
   if (!apiBridge?.syncNotionNow) return;
   try {
     await apiBridge.syncNotionNow();
+    showToast('Notion sync started', 'info');
   } catch (error: unknown) {
     logError('syncNotionNow failed', error);
+    showToast('Notion sync failed', 'error');
   }
 });
+
 obsidianAdd.addEventListener('click', async () => {
   if (!apiBridge?.selectObsidianVault) {
-    setObsidianStatus('Obsidian unavailable');
+    showToast('Obsidian unavailable', 'error');
     return;
   }
   try {
@@ -666,23 +708,28 @@ obsidianAdd.addEventListener('click', async () => {
     if (!obsidianVaultList.includes(result.path)) {
       obsidianVaultList = [...obsidianVaultList, result.path];
       await saveObsidianConfig();
+      showToast('Vault added', 'success');
     }
   } catch (error: unknown) {
     logError('selectObsidianVault failed', error);
-    setObsidianStatus('Failed to add vault');
+    showToast('Failed to add vault', 'error');
   }
 });
+
 obsidianSync.addEventListener('click', async () => {
   if (!apiBridge?.syncObsidianNow) return;
   try {
     await apiBridge.syncObsidianNow();
+    showToast('Obsidian sync started', 'info');
   } catch (error: unknown) {
     logError('syncObsidianNow failed', error);
+    showToast('Obsidian sync failed', 'error');
   }
 });
+
 localAdd.addEventListener('click', async () => {
   if (!apiBridge?.selectLocalFolder) {
-    setLocalStatus('Local folders unavailable');
+    showToast('Local folders unavailable', 'error');
     return;
   }
   try {
@@ -691,20 +738,25 @@ localAdd.addEventListener('click', async () => {
     if (!localFolderList.includes(result.path)) {
       localFolderList = [...localFolderList, result.path];
       await saveLocalConfig();
+      showToast('Folder added', 'success');
     }
   } catch (error: unknown) {
     logError('selectLocalFolder failed', error);
-    setLocalStatus('Failed to add folder');
+    showToast('Failed to add folder', 'error');
   }
 });
+
 localSync.addEventListener('click', async () => {
   if (!apiBridge?.syncLocalNow) return;
   try {
     await apiBridge.syncLocalNow();
+    showToast('Local sync started', 'info');
   } catch (error: unknown) {
     logError('syncLocalNow failed', error);
+    showToast('Local sync failed', 'error');
   }
 });
+
 localRecursive.addEventListener('change', () => {
   localRecursiveEnabled = localRecursive.checked;
   saveLocalConfig();

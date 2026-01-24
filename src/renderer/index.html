@@ -11,64 +11,12 @@
     <div id="search-bar">
       <div id="search-row">
         <input type="text" id="search" placeholder="Search your notes..." autofocus>
-        <button id="api-key-toggle" type="button" title="AI provider settings">AI Settings</button>
-        <button id="obsidian-toggle" type="button" title="Connect Obsidian vaults">Obsidian</button>
-        <button id="local-toggle" type="button" title="Index local folders">Local</button>
-        <button id="notion-toggle" type="button" title="Connect Notion">Notion</button>
-      </div>
-      <div id="api-key-panel">
-        <div class="panel-row">
-          <label for="llm-provider">Provider:</label>
-          <select id="llm-provider">
-            <option value="gemini">Gemini</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="ollama">Ollama (local)</option>
-          </select>
-        </div>
-        <div id="gemini-key-row" class="panel-row">
-          <input type="password" id="api-key-input" placeholder="Gemini API key" autocomplete="off">
-          <button id="api-key-save" type="button">Save</button>
-          <button id="api-key-clear" type="button">Clear</button>
-        </div>
-        <div id="openrouter-key-row" class="panel-row hidden">
-          <input type="password" id="openrouter-key-input" placeholder="OpenRouter API key" autocomplete="off">
-          <button id="openrouter-key-save" type="button">Save</button>
-          <button id="openrouter-key-clear" type="button">Clear</button>
-        </div>
-        <div id="ollama-model-row" class="panel-row hidden">
-          <label for="ollama-model">Model:</label>
-          <select id="ollama-model"></select>
-        </div>
-        <div id="api-key-status"></div>
-      </div>
-      <div id="obsidian-panel">
-        <div class="panel-row">
-          <div id="obsidian-status">No vaults selected</div>
-          <button id="obsidian-add" type="button">Add vault</button>
-          <button id="obsidian-sync" type="button">Sync now</button>
-        </div>
-        <div id="obsidian-vaults"></div>
-      </div>
-      <div id="local-panel">
-        <div class="panel-row">
-          <div id="local-status">No folders selected</div>
-          <button id="local-add" type="button">Add folder</button>
-          <button id="local-sync" type="button">Sync now</button>
-        </div>
-        <div class="panel-row">
-          <label class="panel-label" for="local-recursive">Include subfolders</label>
-          <input id="local-recursive" type="checkbox" checked>
-        </div>
-        <div id="local-folders"></div>
-      </div>
-      <div id="notion-panel">
-        <div class="panel-row">
-          <input type="password" id="notion-token-input" placeholder="Paste your Notion integration token" autocomplete="off">
-          <button id="notion-save" type="button">Save</button>
-          <button id="notion-clear" type="button">Clear</button>
-          <button id="notion-sync" type="button">Sync now</button>
-        </div>
-        <div id="notion-status"></div>
+        <button id="settings-toggle" type="button" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+            <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+          </svg>
+        </button>
       </div>
       <div id="search-status" data-state="idle"></div>
     </div>
@@ -80,6 +28,107 @@
       </div>
     </div>
   </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button id="settings-close" class="modal-close" title="Close">&times;</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="tab active" data-tab="ai">AI Provider</button>
+        <button class="tab" data-tab="obsidian">Obsidian</button>
+        <button class="tab" data-tab="local">Local Files</button>
+        <button class="tab" data-tab="notion">Notion</button>
+      </div>
+      <div class="modal-body">
+        <!-- AI Provider Tab -->
+        <div id="tab-ai" class="tab-content active">
+          <div class="setting-group">
+            <label for="llm-provider">Provider</label>
+            <select id="llm-provider">
+              <option value="gemini">Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="ollama">Ollama (local)</option>
+            </select>
+          </div>
+          <div id="gemini-key-row" class="setting-group">
+            <label for="api-key-input">API Key</label>
+            <div class="input-row">
+              <input type="password" id="api-key-input" placeholder="Enter Gemini API key" autocomplete="off">
+              <button id="api-key-save" type="button">Save</button>
+              <button id="api-key-clear" type="button" class="btn-secondary">Clear</button>
+            </div>
+          </div>
+          <div id="openrouter-key-row" class="setting-group hidden">
+            <label for="openrouter-key-input">API Key</label>
+            <div class="input-row">
+              <input type="password" id="openrouter-key-input" placeholder="Enter OpenRouter API key" autocomplete="off">
+              <button id="openrouter-key-save" type="button">Save</button>
+              <button id="openrouter-key-clear" type="button" class="btn-secondary">Clear</button>
+            </div>
+          </div>
+          <div id="ollama-model-row" class="setting-group hidden">
+            <label for="ollama-model">Model</label>
+            <select id="ollama-model"></select>
+          </div>
+          <div id="api-key-status" class="status-text"></div>
+        </div>
+
+        <!-- Obsidian Tab -->
+        <div id="tab-obsidian" class="tab-content">
+          <div class="setting-group">
+            <div class="setting-header">
+              <span id="obsidian-status">No vaults selected</span>
+              <div class="btn-group">
+                <button id="obsidian-add" type="button">Add Vault</button>
+                <button id="obsidian-sync" type="button" class="btn-secondary" disabled>Sync</button>
+              </div>
+            </div>
+            <div id="obsidian-vaults" class="item-list"></div>
+          </div>
+        </div>
+
+        <!-- Local Files Tab -->
+        <div id="tab-local" class="tab-content">
+          <div class="setting-group">
+            <div class="setting-header">
+              <span id="local-status">No folders selected</span>
+              <div class="btn-group">
+                <button id="local-add" type="button">Add Folder</button>
+                <button id="local-sync" type="button" class="btn-secondary" disabled>Sync</button>
+              </div>
+            </div>
+            <label class="checkbox-label">
+              <input id="local-recursive" type="checkbox" checked>
+              <span>Include subfolders</span>
+            </label>
+            <div id="local-folders" class="item-list"></div>
+          </div>
+        </div>
+
+        <!-- Notion Tab -->
+        <div id="tab-notion" class="tab-content">
+          <div class="setting-group">
+            <label for="notion-token-input">Integration Token</label>
+            <div class="input-row">
+              <input type="password" id="notion-token-input" placeholder="Paste your Notion integration token" autocomplete="off">
+              <button id="notion-save" type="button">Save</button>
+              <button id="notion-clear" type="button" class="btn-secondary">Clear</button>
+            </div>
+            <button id="notion-sync" type="button" class="btn-secondary" disabled>Sync Now</button>
+          </div>
+          <div id="notion-status" class="status-text"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
   <script src="renderer.js"></script>
 </body>
 </html>
