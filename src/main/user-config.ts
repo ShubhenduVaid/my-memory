@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app, safeStorage } from 'electron';
+import { LLMProvider } from '../core/types';
 
 export interface UserConfig {
   geminiApiKey?: string;
   openrouterApiKey?: string;
-  llmProvider?: 'gemini' | 'openrouter' | 'ollama';
+  llmProvider?: LLMProvider;
   obsidian?: ObsidianConfig;
   local?: LocalConfig;
   notion?: NotionConfig;

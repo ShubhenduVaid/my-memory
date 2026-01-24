@@ -13,7 +13,7 @@ export class OpenRouterAdapter implements ILLMAdapter {
   private model: string = DEFAULT_MODEL;
 
   async initialize(config: LLMConfig): Promise<void> {
-    this.apiKey = config.apiKey || process.env.OPENROUTER_API_KEY || null;
+    this.apiKey = config.openrouterApiKey || config.apiKey || process.env.OPENROUTER_API_KEY || null;
     this.model = config.model || DEFAULT_MODEL;
     if (!this.apiKey) {
       console.log('[OpenRouter] No API key - adapter disabled');
@@ -29,27 +29,35 @@ export class OpenRouterAdapter implements ILLMAdapter {
   async generate(request: LLMRequest): Promise<LLMResponse> {
     if (!this.apiKey) throw new Error('OpenRouter not initialized');
 
-    const response = await fetch(BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      const response = await fetch(BASE_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'user', content: request.prompt }],
+          max_tokens: request.maxTokens,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return {
+        text: data.choices?.[0]?.message?.content || '',
         model: this.model,
-        messages: [{ role: 'user', content: request.prompt }],
-        max_tokens: request.maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenRouter error: ${response.status} ${response.statusText}`);
+      };
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = await response.json();
-    return {
-      text: data.choices?.[0]?.message?.content || '',
-      model: this.model,
-    };
   }
 }

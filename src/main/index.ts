@@ -27,7 +27,7 @@ if (!app.isPackaged) {
   config({ path: path.join(__dirname, '../../.env') });
 }
 
-import { pluginRegistry } from '../core/types';
+import { pluginRegistry, SUPPORTED_PROVIDERS, LLMProvider } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
 import { ObsidianAdapter } from '../adapters/obsidian';
 import { LocalFilesAdapter } from '../adapters/local-files';
@@ -231,8 +231,12 @@ async function initializeApp(): Promise<void> {
   }
 
   // Initialize search
-  const { geminiApiKey } = readUserConfig();
-  await searchManager.initialize({ apiKey: geminiApiKey });
+  const config = readUserConfig();
+  await searchManager.initialize({ 
+    apiKey: config.geminiApiKey, 
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider 
+  });
 }
 
 // Application lifecycle
@@ -367,7 +371,11 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
   const config = readUserConfig();
-  await searchManager.initialize({ apiKey: config.geminiApiKey, provider: config.llmProvider });
+  await searchManager.initialize({ 
+    apiKey: config.geminiApiKey, 
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider 
+  });
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
 
@@ -381,13 +389,14 @@ ipcMain.handle('get-llm-config', () => {
 });
 
 ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
-  if (!['gemini', 'openrouter', 'ollama'].includes(provider)) {
+  if (!SUPPORTED_PROVIDERS.includes(provider as LLMProvider)) {
     return { ok: false, error: 'Invalid provider' };
   }
-  writeUserConfig({ llmProvider: provider as 'gemini' | 'openrouter' | 'ollama' });
+  writeUserConfig({ llmProvider: provider as LLMProvider });
   const config = readUserConfig();
   await searchManager.initialize({
-    apiKey: provider === 'openrouter' ? config.openrouterApiKey : config.geminiApiKey,
+    apiKey: config.geminiApiKey,
+    openrouterApiKey: config.openrouterApiKey,
     provider: config.llmProvider,
   });
   return { ok: true, provider };
@@ -398,9 +407,11 @@ ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | unde
   const openrouterApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ openrouterApiKey });
   const config = readUserConfig();
-  if (config.llmProvider === 'openrouter') {
-    await searchManager.initialize({ apiKey: openrouterApiKey, provider: 'openrouter' });
-  }
+  await searchManager.initialize({ 
+    apiKey: config.geminiApiKey, 
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider 
+  });
   return { ok: true, hasKey: Boolean(openrouterApiKey) };
 });
 

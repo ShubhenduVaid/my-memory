@@ -92,6 +92,7 @@ export interface LLMResponse {
 /** Configuration for LLM adapters */
 export interface LLMConfig {
   apiKey?: string;
+  openrouterApiKey?: string;
   baseUrl?: string;
   model?: string;
 }
@@ -104,12 +105,24 @@ export interface ILLMAdapter {
   initialize(config: LLMConfig): Promise<void>;
   generate(request: LLMRequest): Promise<LLMResponse>;
   isAvailable(): boolean;
+  getModels?(): string[];
+  getCurrentModel?(): string;
+  setModel?(model: string): void;
 }
+
+/** Supported LLM providers */
+export const SUPPORTED_PROVIDERS = ['gemini', 'openrouter', 'ollama'] as const;
+export type LLMProvider = typeof SUPPORTED_PROVIDERS[number];
 
 /** Registry for managing LLM adapters */
 export class LLMRegistry {
   private adapters = new Map<string, ILLMAdapter>();
   private current: ILLMAdapter | null = null;
+
+  clear(): void {
+    this.adapters.clear();
+    this.current = null;
+  }
 
   register(adapter: ILLMAdapter): void {
     this.adapters.set(adapter.name, adapter);

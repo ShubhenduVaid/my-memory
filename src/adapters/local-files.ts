@@ -3,15 +3,15 @@
  * Supports markdown, text, and PDF files.
  */
 
-import { promises as fsPromises, watch, FSWatcher } from "fs";
-import * as path from "path";
-import pdfParse from "pdf-parse";
-import { ISourceAdapter, Note, WatchCallback } from "../core/types";
-import { readUserConfig } from "../main/user-config";
+import { promises as fsPromises, watch, FSWatcher } from 'fs';
+import * as path from 'path';
+import pdfParse from 'pdf-parse';
+import { ISourceAdapter, Note, WatchCallback } from '../core/types';
+import { readUserConfig } from '../main/user-config';
 
-const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
-const PDF_EXTENSIONS = new Set([".pdf"]);
-const IGNORE_DIRS = new Set([".git", "node_modules", ".obsidian", ".Trash"]);
+const TEXT_EXTENSIONS = new Set(['.md', '.markdown', '.txt']);
+const PDF_EXTENSIONS = new Set(['.pdf']);
+const IGNORE_DIRS = new Set(['.git', 'node_modules', '.obsidian', '.Trash']);
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_CONTENT_CHARS = 20000;
@@ -19,7 +19,7 @@ const RESCAN_DEBOUNCE_MS = 1500;
 const DEFAULT_RECURSIVE = true;
 
 export class LocalFilesAdapter implements ISourceAdapter {
-  readonly name = "local-files";
+  readonly name = 'local-files';
 
   private callback: WatchCallback | null = null;
   private watchers: FSWatcher[] = [];
@@ -45,7 +45,7 @@ export class LocalFilesAdapter implements ISourceAdapter {
           if (note) notes.push(note);
         }
       } catch (error) {
-        console.error("[LocalFiles] Scan error", folder, error);
+        console.error('[LocalFiles] Scan error', folder, error);
       }
     }
 
@@ -73,18 +73,16 @@ export class LocalFilesAdapter implements ISourceAdapter {
     const recursive = config?.recursive ?? DEFAULT_RECURSIVE;
     for (const folder of folders) {
       try {
-        const watcher = watch(folder, { recursive }, () =>
-          this.scheduleRescan(),
-        );
+        const watcher = watch(folder, { recursive }, () => this.scheduleRescan());
         this.watchers.push(watcher);
       } catch (error) {
-        console.error("[LocalFiles] Watch error", folder, error);
+        console.error('[LocalFiles] Watch error', folder, error);
       }
     }
   }
 
   private clearWatchers(): void {
-    this.watchers.forEach((watcher) => watcher.close());
+    this.watchers.forEach(watcher => watcher.close());
     this.watchers = [];
     if (this.rescanTimer) {
       clearTimeout(this.rescanTimer);
@@ -102,17 +100,14 @@ export class LocalFilesAdapter implements ISourceAdapter {
         const notes = await this.fetchAll();
         this.callback?.(notes);
       } catch (error) {
-        console.error("[LocalFiles] Rescan error", error);
+        console.error('[LocalFiles] Rescan error', error);
       } finally {
         this.rescanInFlight = false;
       }
     }, RESCAN_DEBOUNCE_MS);
   }
 
-  private async collectFiles(
-    root: string,
-    recursive: boolean,
-  ): Promise<string[]> {
+  private async collectFiles(root: string, recursive: boolean): Promise<string[]> {
     const files: string[] = [];
     const stack: string[] = [root];
 
@@ -123,7 +118,7 @@ export class LocalFilesAdapter implements ISourceAdapter {
       try {
         entries = await fsPromises.readdir(current, { withFileTypes: true });
       } catch (error) {
-        console.error("[LocalFiles] Read dir failed", current, error);
+        console.error('[LocalFiles] Read dir failed', current, error);
         continue;
       }
 
@@ -145,7 +140,7 @@ export class LocalFilesAdapter implements ISourceAdapter {
   }
 
   private shouldIgnoreDir(name: string): boolean {
-    if (name.startsWith(".")) return true;
+    if (name.startsWith('.')) return true;
     return IGNORE_DIRS.has(name);
   }
 
@@ -154,15 +149,12 @@ export class LocalFilesAdapter implements ISourceAdapter {
     return TEXT_EXTENSIONS.has(ext) || PDF_EXTENSIONS.has(ext);
   }
 
-  private async fileToNote(
-    filePath: string,
-    root: string,
-  ): Promise<Note | null> {
+  private async fileToNote(filePath: string, root: string): Promise<Note | null> {
     let stat;
     try {
       stat = await fsPromises.stat(filePath);
     } catch (error) {
-      console.error("[LocalFiles] Stat failed", filePath, error);
+      console.error('[LocalFiles] Stat failed', filePath, error);
       return null;
     }
 
@@ -170,22 +162,21 @@ export class LocalFilesAdapter implements ISourceAdapter {
     if (TEXT_EXTENSIONS.has(ext) && stat.size > MAX_TEXT_BYTES) return null;
     if (PDF_EXTENSIONS.has(ext) && stat.size > MAX_PDF_BYTES) return null;
 
-    let content = "";
+    let content = '';
     try {
       if (PDF_EXTENSIONS.has(ext)) {
         content = await this.extractPdfText(filePath);
       } else {
-        const raw = await fsPromises.readFile(filePath, "utf8");
+        const raw = await fsPromises.readFile(filePath, 'utf8');
         content = this.normalizeText(raw);
       }
     } catch (error) {
-      console.error("[LocalFiles] Read failed", filePath, error);
+      console.error('[LocalFiles] Read failed', filePath, error);
       return null;
     }
 
     if (!content) return null;
-    if (content.length > MAX_CONTENT_CHARS)
-      content = content.slice(0, MAX_CONTENT_CHARS);
+    if (content.length > MAX_CONTENT_CHARS) content = content.slice(0, MAX_CONTENT_CHARS);
 
     const relative = path.relative(root, filePath) || path.basename(filePath);
     const folderLabel = path.basename(root) || root;
@@ -194,27 +185,27 @@ export class LocalFilesAdapter implements ISourceAdapter {
       id: `local-file:${encodeURIComponent(filePath)}`,
       title: relative,
       content,
-      source: "local-files",
+      source: 'local-files',
       sourceId: filePath,
       modifiedAt: stat.mtime,
       metadata: {
         folder: `Local • ${folderLabel}`,
-        path: filePath,
-      },
+        path: filePath
+      }
     };
   }
 
   private async extractPdfText(filePath: string): Promise<string> {
     const buffer = await fsPromises.readFile(filePath);
     const parsed = await pdfParse(buffer);
-    return this.normalizePdfText(parsed.text || "");
+    return this.normalizePdfText(parsed.text || '');
   }
 
   private normalizeText(input: string): string {
-    return input.replace(/\r\n/g, "\n").trim();
+    return input.replace(/\r\n/g, '\n').trim();
   }
 
   private normalizePdfText(input: string): string {
-    return input.replace(/\s+/g, " ").trim();
+    return input.replace(/\s+/g, ' ').trim();
   }
 }

@@ -53,6 +53,9 @@ export class SearchManager {
 
   /** Initialize the search manager with LLM adapters */
   async initialize(config?: LLMConfig & { provider?: string }): Promise<void> {
+    // Clear existing adapters to prevent pollution on re-init
+    llmRegistry.clear();
+
     // Register all adapters
     const gemini = new GeminiAdapter();
     const openrouter = new OpenRouterAdapter();
@@ -87,17 +90,17 @@ export class SearchManager {
 
   /** Get Ollama models and current selection */
   getOllamaInfo(): { models: string[]; current: string } {
-    const ollama = llmRegistry.get('ollama') as OllamaAdapter | undefined;
+    const ollama = llmRegistry.get('ollama');
     return {
-      models: ollama?.getModels() || [],
-      current: ollama?.getCurrentModel() || '',
+      models: ollama?.getModels?.() || [],
+      current: ollama?.getCurrentModel?.() || '',
     };
   }
 
   /** Set Ollama model */
   setOllamaModel(model: string): void {
-    const ollama = llmRegistry.get('ollama') as OllamaAdapter | undefined;
-    ollama?.setModel(model);
+    const ollama = llmRegistry.get('ollama');
+    ollama?.setModel?.(model);
   }
 
   /**
