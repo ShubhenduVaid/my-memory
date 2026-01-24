@@ -161,9 +161,9 @@ function setApiKeyStatus(hasKey: boolean, message?: string): void {
 }
 
 function updateLlmProviderUI(): void {
-  geminiKeyRow.style.display = currentLlmProvider === 'gemini' ? '' : 'none';
-  openrouterKeyRow.style.display = currentLlmProvider === 'openrouter' ? '' : 'none';
-  ollamaModelRow.style.display = currentLlmProvider === 'ollama' ? '' : 'none';
+  geminiKeyRow.classList.toggle('hidden', currentLlmProvider !== 'gemini');
+  openrouterKeyRow.classList.toggle('hidden', currentLlmProvider !== 'openrouter');
+  ollamaModelRow.classList.toggle('hidden', currentLlmProvider !== 'ollama');
   llmProviderSelect.value = currentLlmProvider;
   if (currentLlmProvider === 'ollama') refreshOllamaModels();
 }

@@ -4,7 +4,7 @@
 
 import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse } from '../../core/types';
 
-const DEFAULT_MODEL = 'openai/gpt-4o-mini';
+const DEFAULT_MODEL = 'deepseek/deepseek-r1-0528:free';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export class OpenRouterAdapter implements ILLMAdapter {
