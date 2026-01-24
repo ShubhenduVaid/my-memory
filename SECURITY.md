@@ -11,7 +11,7 @@
 If you discover a security vulnerability, please report it privately:
 
 1. **Do not** open a public GitHub issue
-2. Email the maintainers directly (or use GitHub's private vulnerability reporting)
+2. Use [GitHub's private vulnerability reporting](https://github.com/ShubhenduVaid/my-memory/security/advisories/new)
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

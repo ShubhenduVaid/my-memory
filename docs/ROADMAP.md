@@ -37,7 +37,7 @@ This document outlines planned features and improvements for My Memory.
 
 ## Community Requests
 
-Have a feature idea? [Open a feature request](https://github.com/YOUR_USERNAME/my-memory/issues/new?template=feature_request.md)!
+Have a feature idea? [Open a feature request](https://github.com/ShubhenduVaid/my-memory/issues/new?template=feature_request.md)!
 
 ---
 

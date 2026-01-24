@@ -11,7 +11,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/my-memory.git
+git clone https://github.com/ShubhenduVaid/my-memory.git
 cd my-memory
 
 # Install dependencies
