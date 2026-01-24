@@ -76,6 +76,12 @@ const tabStatusObsidian = document.getElementById('tab-status-obsidian') as HTML
 const tabStatusLocal = document.getElementById('tab-status-local') as HTMLSpanElement;
 const tabStatusNotion = document.getElementById('tab-status-notion') as HTMLSpanElement;
 
+// Tab status screen reader text
+const tabStatusAiText = document.getElementById('tab-status-ai-text') as HTMLSpanElement;
+const tabStatusObsidianText = document.getElementById('tab-status-obsidian-text') as HTMLSpanElement;
+const tabStatusLocalText = document.getElementById('tab-status-local-text') as HTMLSpanElement;
+const tabStatusNotionText = document.getElementById('tab-status-notion-text') as HTMLSpanElement;
+
 // Empty state hints
 const obsidianEmpty = document.getElementById('obsidian-empty') as HTMLDivElement;
 const localEmpty = document.getElementById('local-empty') as HTMLDivElement;
@@ -240,6 +246,7 @@ function setApiKeyStatus(hasKey: boolean, message?: string): void {
   // Update tab status indicator
   const isConnected = currentLlmProvider === 'ollama' || hasKey;
   tabStatusAi.classList.toggle('connected', isConnected);
+  tabStatusAiText.textContent = isConnected ? '(connected)' : '';
 }
 
 // Toast notification system
@@ -258,16 +265,43 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 // Settings modal functions
 function openSettingsModal(): void {
   settingsModal.classList.remove('hidden');
-  searchInput.blur();
+  // Focus the close button for keyboard users
+  settingsClose.focus();
+  // Trap focus in modal
+  document.addEventListener('keydown', trapFocus);
 }
 
 function closeSettingsModal(): void {
   settingsModal.classList.add('hidden');
-  searchInput.focus();
+  document.removeEventListener('keydown', trapFocus);
+  // Return focus to trigger
+  settingsToggle.focus();
+}
+
+function trapFocus(e: KeyboardEvent): void {
+  if (e.key !== 'Tab') return;
+  
+  const focusableElements = settingsModal.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  );
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  
+  if (e.shiftKey && document.activeElement === firstElement) {
+    e.preventDefault();
+    lastElement.focus();
+  } else if (!e.shiftKey && document.activeElement === lastElement) {
+    e.preventDefault();
+    firstElement.focus();
+  }
 }
 
 function switchTab(tabName: string): void {
-  modalTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabName));
+  modalTabs.forEach(tab => {
+    const isActive = tab.dataset.tab === tabName;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
   document.querySelectorAll('.tab-content').forEach(content => {
     content.classList.toggle('active', content.id === `tab-${tabName}`);
   });
@@ -330,6 +364,7 @@ function setNotionStatus(hasToken: boolean, message?: string): void {
   
   // Update tab status and empty hint
   tabStatusNotion.classList.toggle('connected', hasToken);
+  tabStatusNotionText.textContent = hasToken ? '(connected)' : '';
   notionEmpty.classList.toggle('hidden', hasToken);
 }
 
@@ -372,6 +407,7 @@ function renderObsidianVaults(): void {
   
   // Update tab status and empty hint
   tabStatusObsidian.classList.toggle('connected', hasVaults);
+  tabStatusObsidianText.textContent = hasVaults ? '(connected)' : '';
   obsidianEmpty.classList.toggle('hidden', hasVaults);
 }
 
@@ -409,6 +445,7 @@ function renderLocalFolders(): void {
   
   // Update tab status and empty hint
   tabStatusLocal.classList.toggle('connected', hasFolders);
+  tabStatusLocalText.textContent = hasFolders ? '(connected)' : '';
   localEmpty.classList.toggle('hidden', hasFolders);
 }
 
@@ -950,7 +987,11 @@ function renderResults(): void {
 
   resultsList.innerHTML = results
     .map((result, index) => `
-      <div class="result ${index === selectedIndex ? 'selected' : ''}" data-index="${index}">
+      <div class="result ${index === selectedIndex ? 'selected' : ''}" 
+           data-index="${index}"
+           role="option"
+           aria-selected="${index === selectedIndex}"
+           tabindex="${index === selectedIndex ? '0' : '-1'}">
         <div class="result-title">${escapeHtml(result.title)}</div>
         <div class="result-folder">${escapeHtml(result.folder || '')}</div>
       </div>
@@ -977,9 +1018,12 @@ function selectResult(index: number): void {
   // Clamp index to valid range
   selectedIndex = Math.max(0, Math.min(index, results.length - 1));
 
-  // Update selection styling
+  // Update selection styling and ARIA
   resultsList.querySelectorAll('.result').forEach((element, i) => {
-    element.classList.toggle('selected', i === selectedIndex);
+    const isSelected = i === selectedIndex;
+    element.classList.toggle('selected', isSelected);
+    element.setAttribute('aria-selected', String(isSelected));
+    element.setAttribute('tabindex', isSelected ? '0' : '-1');
   });
 
   // Update preview
