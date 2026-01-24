@@ -121,6 +121,7 @@ export interface ILLMAdapter {
   getModels(): string[];
   getCurrentModel(): string;
   setModel(model: string): boolean;
+  getError?(): string | undefined;
 }
 
 /** Supported LLM providers */

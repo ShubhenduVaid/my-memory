@@ -76,7 +76,8 @@ export class SearchManager {
     // Try to generate AI answer
     const aiAnswer = await this.tryGenerateAnswer(query, matches);
     if (aiAnswer) {
-      return [this.createAiResult(aiAnswer), ...matches];
+      const provider = this.llmService?.getCurrentProvider() || 'AI';
+      return [this.createAiResult(aiAnswer, provider), ...matches];
     }
 
     return matches;
@@ -151,10 +152,13 @@ Answer now.`;
   }
 
   /** Create an AI answer search result */
-  private createAiResult(content: string): SearchResult {
+  private createAiResult(content: string, provider: string): SearchResult {
+    const providerLabel = provider === 'gemini' ? 'Gemini' : 
+      provider === 'openrouter' ? 'OpenRouter' : 
+      provider === 'ollama' ? 'Ollama' : provider;
     return {
       id: 'ai-answer',
-      title: '✨ AI Answer',
+      title: `✨ AI Answer (${providerLabel})`,
       snippet: content.slice(0, 100) + '...',
       content,
       folder: 'AI Generated',

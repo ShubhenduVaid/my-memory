@@ -13,6 +13,7 @@ export interface ProviderInfo {
   name: string;
   available: boolean;
   capabilities: LLMCapabilities;
+  error?: string;
 }
 
 export class LLMService {
@@ -57,6 +58,7 @@ export class LLMService {
       name: a.name,
       available: a.isAvailable(),
       capabilities: a.capabilities,
+      error: a.getError?.(),
     }));
   }
 

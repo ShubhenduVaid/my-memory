@@ -12,12 +12,19 @@ interface SearchResult {
   score: number;
 }
 
+interface ProviderInfo {
+  name: string;
+  available: boolean;
+  capabilities: { supportsModelSelection: boolean; requiresApiKey: boolean };
+  error?: string;
+}
+
 interface RendererApi {
   search: (query: string) => Promise<SearchResult[]>;
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
-  getLlmConfig: () => Promise<{ provider: string; hasGeminiKey: boolean; hasOpenrouterKey: boolean }>;
+  getLlmConfig: () => Promise<{ provider: string; hasGeminiKey: boolean; hasOpenrouterKey: boolean; providers?: ProviderInfo[] }>;
   setLlmProvider: (provider: string) => Promise<{ ok: boolean; provider: string }>;
   setOpenrouterKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
   getOllamaModels: () => Promise<{ models: string[]; current: string }>;
@@ -100,6 +107,7 @@ let localFolderList: string[] = [];
 let localRecursiveEnabled = true;
 let notionHasToken = false;
 let currentLlmProvider = 'gemini';
+let providerInfoCache: ProviderInfo[] = [];
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
@@ -152,19 +160,52 @@ if (pingPromise) {
 }
 
 function setApiKeyStatus(hasKey: boolean, message?: string): void {
-  const providerName = currentLlmProvider === 'ollama' ? 'Ollama (local)' : 
+  const provider = providerInfoCache.find(p => p.name === currentLlmProvider);
+  const providerName = currentLlmProvider === 'ollama' ? 'Ollama' : 
     currentLlmProvider === 'openrouter' ? 'OpenRouter' : 'Gemini';
-  const base = currentLlmProvider === 'ollama' ? 'Using local Ollama' :
-    hasKey ? `${providerName} key saved` : `${providerName} key not set`;
+  
+  let base: string;
+  if (provider?.error) {
+    base = `${providerName}: ${provider.error}`;
+  } else if (currentLlmProvider === 'ollama') {
+    base = 'Using local Ollama';
+  } else {
+    base = hasKey ? `${providerName} key saved` : `${providerName} key not set`;
+  }
+  
   apiKeyStatus.textContent = message ? `${base} - ${message}` : base;
-  apiKeyStatus.dataset.state = currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset';
+  apiKeyStatus.dataset.state = provider?.error ? 'error' : 
+    (currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset');
+}
+
+function updateProviderDropdown(): void {
+  const options = [
+    { value: 'gemini', label: 'Gemini' },
+    { value: 'openrouter', label: 'OpenRouter' },
+    { value: 'ollama', label: 'Ollama (local)' },
+  ];
+  
+  llmProviderSelect.innerHTML = options.map(opt => {
+    const info = providerInfoCache.find(p => p.name === opt.value);
+    let status = '';
+    if (info?.error) {
+      status = ' ✗';
+    } else if (info?.available) {
+      status = ' ✓';
+    } else if (info?.capabilities.requiresApiKey) {
+      status = ' (no key)';
+    }
+    return `<option value="${opt.value}">${opt.label}${status}</option>`;
+  }).join('');
+  
+  llmProviderSelect.value = currentLlmProvider;
 }
 
 function updateLlmProviderUI(): void {
   geminiKeyRow.classList.toggle('hidden', currentLlmProvider !== 'gemini');
   openrouterKeyRow.classList.toggle('hidden', currentLlmProvider !== 'openrouter');
   ollamaModelRow.classList.toggle('hidden', currentLlmProvider !== 'ollama');
-  llmProviderSelect.value = currentLlmProvider;
+  updateProviderDropdown();
   if (currentLlmProvider === 'ollama') refreshOllamaModels();
 }
 
@@ -172,11 +213,18 @@ async function refreshOllamaModels(): Promise<void> {
   if (!apiBridge?.getOllamaModels) return;
   try {
     const { models, current } = await apiBridge.getOllamaModels();
-    ollamaModelSelect.innerHTML = models.length === 0
-      ? '<option value="">No models installed</option>'
-      : models.map(m => `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`).join('');
+    const provider = providerInfoCache.find(p => p.name === 'ollama');
+    if (models.length === 0) {
+      const hint = provider?.error || 'No models - run: ollama pull llama3.2';
+      ollamaModelSelect.innerHTML = `<option value="" disabled selected>${hint}</option>`;
+    } else {
+      ollamaModelSelect.innerHTML = models.map(m => 
+        `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`
+      ).join('');
+    }
   } catch (error) {
     logError('getOllamaModels failed', error);
+    ollamaModelSelect.innerHTML = '<option value="" disabled selected>Error loading models</option>';
   }
 }
 
@@ -386,8 +434,9 @@ async function saveLocalConfig(): Promise<void> {
 if (apiBridge?.getLlmConfig) {
   apiBridge
     .getLlmConfig()
-    .then(({ provider, hasGeminiKey, hasOpenrouterKey }) => {
+    .then(({ provider, hasGeminiKey, hasOpenrouterKey, providers }) => {
       currentLlmProvider = provider;
+      providerInfoCache = providers || [];
       updateLlmProviderUI();
       const hasKey = provider === 'gemini' ? hasGeminiKey : 
         provider === 'openrouter' ? hasOpenrouterKey : true;
@@ -468,16 +517,24 @@ openrouterKeyInput.addEventListener('keydown', event => {
 llmProviderSelect.addEventListener('change', async () => {
   const provider = llmProviderSelect.value;
   if (!apiBridge?.setLlmProvider) return;
+  
+  llmProviderSelect.disabled = true;
+  setApiKeyStatus(false, 'switching...');
+  
   try {
     const result = await apiBridge.setLlmProvider(provider);
     currentLlmProvider = result.provider;
-    updateLlmProviderUI();
     const config = await apiBridge.getLlmConfig?.();
+    providerInfoCache = config?.providers || [];
+    updateLlmProviderUI();
     const hasKey = provider === 'gemini' ? config?.hasGeminiKey : 
       provider === 'openrouter' ? config?.hasOpenrouterKey : true;
-    setApiKeyStatus(hasKey ?? false, 'provider changed');
+    setApiKeyStatus(hasKey ?? false);
   } catch (error) {
     logError('setLlmProvider failed', error);
+    setApiKeyStatus(false, 'switch failed');
+  } finally {
+    llmProviderSelect.disabled = false;
   }
 });
 openrouterKeySave.addEventListener('click', async () => {

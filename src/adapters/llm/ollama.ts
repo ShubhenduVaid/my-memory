@@ -14,16 +14,19 @@ export class OllamaAdapter implements ILLMAdapter {
   private model: string = DEFAULT_MODEL;
   private available = false;
   private installedModels: string[] = [];
+  private error?: string;
 
   async initialize(config: LLMConfig): Promise<void> {
     this.baseUrl = config.baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_BASE_URL;
     this.model = config.model || process.env.OLLAMA_MODEL || DEFAULT_MODEL;
+    this.error = undefined;
 
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`);
       if (!response.ok) {
         this.available = false;
         this.installedModels = [];
+        this.error = 'Server not responding';
         console.log('[Ollama] Server not available');
         return;
       }
@@ -39,16 +42,24 @@ export class OllamaAdapter implements ILLMAdapter {
       }
       
       this.available = this.installedModels.length > 0;
+      if (!this.available) {
+        this.error = 'No models installed. Run: ollama pull llama3.2';
+      }
       console.log('[Ollama]', this.available ? `Ready with model: ${this.model}` : 'No models installed');
     } catch {
       this.available = false;
       this.installedModels = [];
+      this.error = 'Not running. Start with: ollama serve';
       console.log('[Ollama] Server not reachable at', this.baseUrl);
     }
   }
 
   isAvailable(): boolean {
     return this.available;
+  }
+
+  getError(): string | undefined {
+    return this.error;
   }
 
   getModels(): string[] {

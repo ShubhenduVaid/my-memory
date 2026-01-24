@@ -388,6 +388,7 @@ ipcMain.handle('get-llm-config', () => {
     provider: config.llmProvider || 'gemini',
     hasGeminiKey: Boolean(config.geminiApiKey),
     hasOpenrouterKey: Boolean(config.openrouterApiKey),
+    providers: llmService.getProviders(),
   };
 });
 

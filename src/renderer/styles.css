@@ -125,6 +125,39 @@ body {
 #notion-token-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
+#api-key-status[data-state="error"] { color: #e57373; }
+#llm-provider {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+}
+#llm-provider:disabled { opacity: 0.6; }
+#openrouter-key-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+}
+#openrouter-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+#ollama-model {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+  min-width: 150px;
+}
 #obsidian-panel,
 #local-panel,
 #notion-panel {
