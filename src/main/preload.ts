@@ -29,6 +29,12 @@ const api = {
   /** Set OpenRouter API key */
   setOpenrouterKey: (apiKey: string | null) => ipcRenderer.invoke('set-openrouter-key', apiKey),
 
+  /** Get Ollama models */
+  getOllamaModels: () => ipcRenderer.invoke('get-ollama-models'),
+
+  /** Set Ollama model */
+  setOllamaModel: (model: string) => ipcRenderer.invoke('set-ollama-model', model),
+
   /** Check whether a Notion token is configured */
   getNotionConfig: () => ipcRenderer.invoke('notion-get-config'),
 

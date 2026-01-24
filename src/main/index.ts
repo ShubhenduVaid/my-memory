@@ -404,6 +404,15 @@ ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | unde
   return { ok: true, hasKey: Boolean(openrouterApiKey) };
 });
 
+ipcMain.handle('get-ollama-models', () => {
+  return searchManager.getOllamaInfo();
+});
+
+ipcMain.handle('set-ollama-model', (_event, model: string) => {
+  searchManager.setOllamaModel(model);
+  return { ok: true, model };
+});
+
 ipcMain.handle('notion-get-config', () => {
   const notionToken = readUserConfig().notion?.token;
   return { hasToken: Boolean(notionToken) };

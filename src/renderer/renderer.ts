@@ -20,6 +20,8 @@ interface RendererApi {
   getLlmConfig: () => Promise<{ provider: string; hasGeminiKey: boolean; hasOpenrouterKey: boolean }>;
   setLlmProvider: (provider: string) => Promise<{ ok: boolean; provider: string }>;
   setOpenrouterKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getOllamaModels: () => Promise<{ models: string[]; current: string }>;
+  setOllamaModel: (model: string) => Promise<{ ok: boolean; model: string }>;
   getNotionConfig: () => Promise<{ hasToken: boolean }>;
   setNotionToken: (token: string | null) => Promise<{ ok: boolean; hasToken: boolean }>;
   syncNotionNow: () => Promise<{ ok: boolean }>;
@@ -82,6 +84,8 @@ const openrouterKeyRow = document.getElementById('openrouter-key-row') as HTMLDi
 const openrouterKeyInput = document.getElementById('openrouter-key-input') as HTMLInputElement;
 const openrouterKeySave = document.getElementById('openrouter-key-save') as HTMLButtonElement;
 const openrouterKeyClear = document.getElementById('openrouter-key-clear') as HTMLButtonElement;
+const ollamaModelRow = document.getElementById('ollama-model-row') as HTMLDivElement;
+const ollamaModelSelect = document.getElementById('ollama-model') as HTMLSelectElement;
 
 // State
 let selectedIndex = -1;
@@ -159,7 +163,21 @@ function setApiKeyStatus(hasKey: boolean, message?: string): void {
 function updateLlmProviderUI(): void {
   geminiKeyRow.style.display = currentLlmProvider === 'gemini' ? '' : 'none';
   openrouterKeyRow.style.display = currentLlmProvider === 'openrouter' ? '' : 'none';
+  ollamaModelRow.style.display = currentLlmProvider === 'ollama' ? '' : 'none';
   llmProviderSelect.value = currentLlmProvider;
+  if (currentLlmProvider === 'ollama') refreshOllamaModels();
+}
+
+async function refreshOllamaModels(): Promise<void> {
+  if (!apiBridge?.getOllamaModels) return;
+  try {
+    const { models, current } = await apiBridge.getOllamaModels();
+    ollamaModelSelect.innerHTML = models.length === 0
+      ? '<option value="">No models installed</option>'
+      : models.map(m => `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`).join('');
+  } catch (error) {
+    logError('getOllamaModels failed', error);
+  }
 }
 
 function toggleApiKeyPanel(force?: boolean): void {
@@ -493,6 +511,16 @@ openrouterKeyClear.addEventListener('click', async () => {
     setApiKeyStatus(false, 'clear failed');
   } finally {
     openrouterKeyClear.disabled = false;
+  }
+});
+ollamaModelSelect.addEventListener('change', async () => {
+  if (!apiBridge?.setOllamaModel) return;
+  const model = ollamaModelSelect.value;
+  try {
+    await apiBridge.setOllamaModel(model);
+    setApiKeyStatus(true, `using ${model}`);
+  } catch (error) {
+    logError('setOllamaModel failed', error);
   }
 });
 notionTokenInput.addEventListener('keydown', event => {

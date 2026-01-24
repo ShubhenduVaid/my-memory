@@ -85,6 +85,21 @@ export class SearchManager {
     console.log('[SearchManager] LLM:', this.llm?.name || 'none available');
   }
 
+  /** Get Ollama models and current selection */
+  getOllamaInfo(): { models: string[]; current: string } {
+    const ollama = llmRegistry.get('ollama') as OllamaAdapter | undefined;
+    return {
+      models: ollama?.getModels() || [],
+      current: ollama?.getCurrentModel() || '',
+    };
+  }
+
+  /** Set Ollama model */
+  setOllamaModel(model: string): void {
+    const ollama = llmRegistry.get('ollama') as OllamaAdapter | undefined;
+    ollama?.setModel(model);
+  }
+
   /**
    * Search with AI-powered answers.
    * Returns AI answer as first result if available, followed by matching notes.
