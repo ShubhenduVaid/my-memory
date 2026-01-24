@@ -754,12 +754,19 @@ notionClear.addEventListener('click', async () => {
 
 notionSync.addEventListener('click', async () => {
   if (!apiBridge?.syncNotionNow) return;
+  notionSync.disabled = true;
+  notionSync.textContent = 'Syncing...';
+  notionSync.classList.add('btn-syncing');
   try {
     await apiBridge.syncNotionNow();
-    showToast('Notion sync started', 'info');
+    showToast('Notion sync complete', 'success');
   } catch (error: unknown) {
     logError('syncNotionNow failed', error);
     showToast('Notion sync failed', 'error');
+  } finally {
+    notionSync.disabled = false;
+    notionSync.textContent = 'Sync Notion Pages';
+    notionSync.classList.remove('btn-syncing');
   }
 });
 
@@ -784,12 +791,20 @@ obsidianAdd.addEventListener('click', async () => {
 
 obsidianSync.addEventListener('click', async () => {
   if (!apiBridge?.syncObsidianNow) return;
+  obsidianSync.disabled = true;
+  const originalText = obsidianSync.textContent;
+  obsidianSync.textContent = 'Syncing...';
+  obsidianSync.classList.add('btn-syncing');
   try {
     await apiBridge.syncObsidianNow();
-    showToast('Obsidian sync started', 'info');
+    showToast('Obsidian sync complete', 'success');
   } catch (error: unknown) {
     logError('syncObsidianNow failed', error);
     showToast('Obsidian sync failed', 'error');
+  } finally {
+    obsidianSync.disabled = false;
+    obsidianSync.textContent = originalText;
+    obsidianSync.classList.remove('btn-syncing');
   }
 });
 
@@ -814,12 +829,20 @@ localAdd.addEventListener('click', async () => {
 
 localSync.addEventListener('click', async () => {
   if (!apiBridge?.syncLocalNow) return;
+  localSync.disabled = true;
+  const originalText = localSync.textContent;
+  localSync.textContent = 'Syncing...';
+  localSync.classList.add('btn-syncing');
   try {
     await apiBridge.syncLocalNow();
-    showToast('Local sync started', 'info');
+    showToast('Local sync complete', 'success');
   } catch (error: unknown) {
     logError('syncLocalNow failed', error);
     showToast('Local sync failed', 'error');
+  } finally {
+    localSync.disabled = false;
+    localSync.textContent = originalText;
+    localSync.classList.remove('btn-syncing');
   }
 });
 

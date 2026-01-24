@@ -318,31 +318,37 @@ button {
   border: none;
   border-radius: 6px;
   background: #f0c040;
-  color: #1a1a1a;
-  font-weight: 500;
+  color: #000;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
-button:hover { background: #f5ca50; }
+button:hover { background: #e5b530; }
 button:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.4);
 }
-button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-weight: 500;
 }
 
-.btn-secondary:hover { background: rgba(255,255,255,0.16); }
-.btn-secondary:disabled { opacity: 0.4; }
+.btn-secondary:hover { background: rgba(255,255,255,0.2); }
+.btn-secondary:disabled { opacity: 0.5; }
 
 .btn-full {
   width: 100%;
   padding: 10px 16px;
+}
+
+.btn-syncing {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 /* Empty State Hints */
