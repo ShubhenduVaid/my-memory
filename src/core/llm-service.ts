@@ -21,6 +21,10 @@ export class LLMService {
   private current: ILLMAdapter | null = null;
 
   async initialize(config: LLMServiceConfig = {}): Promise<void> {
+    // Clear secrets from previous adapters before re-init
+    for (const adapter of this.adapters.values()) {
+      adapter.clearSecrets?.();
+    }
     this.adapters.clear();
     this.current = null;
 

@@ -70,4 +70,11 @@ export class GeminiAdapter implements ILLMAdapter {
     }
     throw new Error('All Gemini models failed');
   }
+
+  clearSecrets(): void {
+    this.models = [];
+    this.modelNames = [];
+    this.modelIndex = 0;
+    this.currentModel = '';
+  }
 }

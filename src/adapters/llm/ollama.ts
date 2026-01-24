@@ -6,6 +6,16 @@ import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_LOCAL_TIMEOUT_MS, 
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_MODEL = 'llama3.1';
+const ALLOWED_HOSTS = ['localhost', '127.0.0.1', '::1'];
+
+function isLocalhostUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    return ALLOWED_HOSTS.includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export class OllamaAdapter implements ILLMAdapter {
   readonly name = 'ollama';
@@ -20,6 +30,15 @@ export class OllamaAdapter implements ILLMAdapter {
     this.baseUrl = config.baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_BASE_URL;
     this.model = config.model || process.env.OLLAMA_MODEL || DEFAULT_MODEL;
     this.error = undefined;
+
+    // SSRF protection: only allow localhost
+    if (!isLocalhostUrl(this.baseUrl)) {
+      this.available = false;
+      this.installedModels = [];
+      this.error = 'Ollama must run on localhost';
+      console.warn('[Ollama] Blocked non-localhost URL:', this.baseUrl);
+      return;
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`);

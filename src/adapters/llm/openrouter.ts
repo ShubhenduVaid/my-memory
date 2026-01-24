@@ -73,4 +73,8 @@ export class OpenRouterAdapter implements ILLMAdapter {
       clearTimeout(timeout);
     }
   }
+
+  clearSecrets(): void {
+    this.apiKey = null;
+  }
 }

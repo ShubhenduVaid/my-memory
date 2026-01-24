@@ -48,6 +48,32 @@ const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
 const notionAdapter = new NotionAdapter();
 
+// Rate limiting for sensitive operations
+const rateLimiter = new Map<string, number>();
+const RATE_LIMIT_MS = 1000;
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const last = rateLimiter.get(key) || 0;
+  if (now - last < RATE_LIMIT_MS) return true;
+  rateLimiter.set(key, now);
+  return false;
+}
+
+// Input sanitization
+function sanitizeString(input: unknown, maxLength = 500): string {
+  if (typeof input !== 'string') return '';
+  return input.slice(0, maxLength).replace(/[\x00-\x1f]/g, '');
+}
+
+function isValidApiKey(key: string): boolean {
+  return /^[a-zA-Z0-9_\-]{10,200}$/.test(key);
+}
+
+function isValidModelName(model: string): boolean {
+  return /^[a-zA-Z0-9_\-.:]{1,100}$/.test(model);
+}
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
@@ -370,7 +396,13 @@ ipcMain.handle('get-gemini-key-status', () => {
 });
 
 ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefined) => {
-  const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
+  if (isRateLimited('set-gemini-key')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const trimmed = sanitizeString(apiKey, 200).trim();
+  if (trimmed && !isValidApiKey(trimmed)) {
+    return { ok: false, error: 'Invalid key format' };
+  }
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
   const config = readUserConfig();
@@ -393,21 +425,31 @@ ipcMain.handle('get-llm-config', () => {
 });
 
 ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
-  if (!SUPPORTED_PROVIDERS.includes(provider as LLMProvider)) {
+  if (isRateLimited('set-llm-provider')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const sanitized = sanitizeString(provider, 50);
+  if (!SUPPORTED_PROVIDERS.includes(sanitized as LLMProvider)) {
     return { ok: false, error: 'Invalid provider' };
   }
-  writeUserConfig({ llmProvider: provider as LLMProvider });
+  writeUserConfig({ llmProvider: sanitized as LLMProvider });
   const config = readUserConfig();
   await llmService.initialize({
     apiKey: config.geminiApiKey,
     openrouterApiKey: config.openrouterApiKey,
     provider: config.llmProvider,
   });
-  return { ok: true, provider };
+  return { ok: true, provider: sanitized };
 });
 
 ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | undefined) => {
-  const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
+  if (isRateLimited('set-openrouter-key')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const trimmed = sanitizeString(apiKey, 200).trim();
+  if (trimmed && !isValidApiKey(trimmed)) {
+    return { ok: false, error: 'Invalid key format' };
+  }
   const openrouterApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ openrouterApiKey });
   const config = readUserConfig();
@@ -424,8 +466,12 @@ ipcMain.handle('get-ollama-models', () => {
 });
 
 ipcMain.handle('set-ollama-model', (_event, model: string) => {
-  const success = llmService.setModel(model);
-  return { ok: success, model: success ? model : llmService.getCurrentModel() };
+  const sanitized = sanitizeString(model, 100);
+  if (!isValidModelName(sanitized)) {
+    return { ok: false, model: llmService.getCurrentModel() };
+  }
+  const success = llmService.setModel(sanitized);
+  return { ok: success, model: success ? sanitized : llmService.getCurrentModel() };
 });
 
 ipcMain.handle('notion-get-config', () => {
