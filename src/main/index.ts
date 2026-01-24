@@ -27,13 +27,14 @@ if (!app.isPackaged) {
   config({ path: path.join(__dirname, '../../.env') });
 }
 
-import { pluginRegistry } from '../core/types';
+import { pluginRegistry, SUPPORTED_PROVIDERS, LLMProvider } from '../core/types';
 import { AppleNotesAdapter } from '../adapters/apple-notes';
 import { ObsidianAdapter } from '../adapters/obsidian';
 import { LocalFilesAdapter } from '../adapters/local-files';
 import { NotionAdapter } from '../adapters/notion';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
+import { LLMService } from '../core/llm-service';
 import { readUserConfig, writeUserConfig } from './user-config';
 import { updateService } from './update-service';
 
@@ -41,10 +42,37 @@ import { updateService } from './update-service';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+const llmService = new LLMService();
 const searchManager = new SearchManager();
 const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
 const notionAdapter = new NotionAdapter();
+
+// Rate limiting for sensitive operations
+const rateLimiter = new Map<string, number>();
+const RATE_LIMIT_MS = 1000;
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const last = rateLimiter.get(key) || 0;
+  if (now - last < RATE_LIMIT_MS) return true;
+  rateLimiter.set(key, now);
+  return false;
+}
+
+// Input sanitization
+function sanitizeString(input: unknown, maxLength = 500): string {
+  if (typeof input !== 'string') return '';
+  return input.slice(0, maxLength).replace(/[\x00-\x1f]/g, '');
+}
+
+function isValidApiKey(key: string): boolean {
+  return /^[a-zA-Z0-9_\-]{10,200}$/.test(key);
+}
+
+function isValidModelName(model: string): boolean {
+  return /^[a-zA-Z0-9_\-.:]{1,100}$/.test(model);
+}
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -230,9 +258,14 @@ async function initializeApp(): Promise<void> {
     await syncNotes();
   }
 
-  // Initialize search
-  const { geminiApiKey } = readUserConfig();
-  await searchManager.initialize(geminiApiKey);
+  // Initialize LLM service and inject into search manager
+  const config = readUserConfig();
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider,
+  });
+  searchManager.setLLMService(llmService);
 }
 
 // Application lifecycle
@@ -317,19 +350,23 @@ function formatQueryForLog(query: string): { preview: string; length: number } {
 }
 
 // IPC handlers
-ipcMain.handle('search', async (_event, query: string) => {
+ipcMain.handle('search', async (event, query: string) => {
   const startedAt = Date.now();
   const { preview, length } = formatQueryForLog(query);
   console.log(`[IPC] search start len=${length} "${preview}"`);
 
   try {
-    const results = await searchManager.search(query);
+    const results = await searchManager.searchWithStream(query, (chunk) => {
+      event.sender.send('search-stream-chunk', chunk);
+    });
+    event.sender.send('search-stream-done');
     console.log(
       `[IPC] search done results=${results.length} (${Date.now() - startedAt}ms) len=${length} "${preview}"`
     );
     return results;
   } catch (error) {
     console.error(`[IPC] search error len=${length} "${preview}"`, error);
+    event.sender.send('search-stream-done');
     return [];
   }
 });
@@ -363,11 +400,86 @@ ipcMain.handle('get-gemini-key-status', () => {
 });
 
 ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefined) => {
-  const trimmed = typeof apiKey === 'string' ? apiKey.trim() : '';
+  if (isRateLimited('set-gemini-key')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const trimmed = sanitizeString(apiKey, 200).trim();
+  if (trimmed && !isValidApiKey(trimmed)) {
+    return { ok: false, error: 'Invalid key format' };
+  }
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
-  await searchManager.initialize(geminiApiKey);
+  const config = readUserConfig();
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider,
+  });
   return { ok: true, hasKey: Boolean(geminiApiKey) };
+});
+
+ipcMain.handle('get-llm-config', async () => {
+  const config = readUserConfig();
+  return {
+    provider: config.llmProvider || 'gemini',
+    hasGeminiKey: Boolean(config.geminiApiKey),
+    hasOpenrouterKey: Boolean(config.openrouterApiKey),
+    providers: await llmService.getProviders(),
+  };
+});
+
+ipcMain.handle('get-llm-telemetry', () => {
+  return llmService.getTelemetry();
+});
+
+ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
+  if (isRateLimited('set-llm-provider')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const sanitized = sanitizeString(provider, 50);
+  if (!SUPPORTED_PROVIDERS.includes(sanitized as LLMProvider)) {
+    return { ok: false, error: 'Invalid provider' };
+  }
+  writeUserConfig({ llmProvider: sanitized as LLMProvider });
+  const config = readUserConfig();
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider,
+  });
+  return { ok: true, provider: sanitized };
+});
+
+ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | undefined) => {
+  if (isRateLimited('set-openrouter-key')) {
+    return { ok: false, error: 'Rate limited' };
+  }
+  const trimmed = sanitizeString(apiKey, 200).trim();
+  if (trimmed && !isValidApiKey(trimmed)) {
+    return { ok: false, error: 'Invalid key format' };
+  }
+  const openrouterApiKey = trimmed.length > 0 ? trimmed : undefined;
+  writeUserConfig({ openrouterApiKey });
+  const config = readUserConfig();
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
+    openrouterApiKey: config.openrouterApiKey,
+    provider: config.llmProvider,
+  });
+  return { ok: true, hasKey: Boolean(openrouterApiKey) };
+});
+
+ipcMain.handle('get-ollama-models', () => {
+  return { models: llmService.getModels(), current: llmService.getCurrentModel() };
+});
+
+ipcMain.handle('set-ollama-model', (_event, model: string) => {
+  const sanitized = sanitizeString(model, 100);
+  if (!isValidModelName(sanitized)) {
+    return { ok: false, model: llmService.getCurrentModel() };
+  }
+  const success = llmService.setModel(sanitized);
+  return { ok: success, model: success ? sanitized : llmService.getCurrentModel() };
 });
 
 ipcMain.handle('notion-get-config', () => {

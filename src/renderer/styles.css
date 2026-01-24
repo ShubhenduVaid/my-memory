@@ -1,4 +1,5 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
+.hidden { display: none !important; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: rgba(30, 30, 30, 0.98);
@@ -124,6 +125,39 @@ body {
 #notion-token-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 #api-key-status { font-size: 11px; color: rgba(255,255,255,0.6); }
 #api-key-status[data-state="set"] { color: #9bdc8c; }
+#api-key-status[data-state="error"] { color: #e57373; }
+#llm-provider {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+}
+#llm-provider:disabled { opacity: 0.6; }
+#openrouter-key-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+}
+#openrouter-key-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+#ollama-model {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+  min-width: 150px;
+}
 #obsidian-panel,
 #local-panel,
 #notion-panel {
@@ -196,3 +230,12 @@ body {
 #preview-content em { font-style: italic; }
 #preview-content ul { margin: 8px 0; padding-left: 20px; }
 #preview-content li { margin: 6px 0; }
+
+.streaming-cursor {
+  animation: blink 1s infinite;
+  color: #f0c040;
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

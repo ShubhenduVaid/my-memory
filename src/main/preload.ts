@@ -20,6 +20,21 @@ const api = {
   /** Set or clear the Gemini API key */
   setGeminiKey: (apiKey: string | null) => ipcRenderer.invoke('set-gemini-key', apiKey),
 
+  /** Get LLM provider config */
+  getLlmConfig: () => ipcRenderer.invoke('get-llm-config'),
+
+  /** Set LLM provider */
+  setLlmProvider: (provider: string) => ipcRenderer.invoke('set-llm-provider', provider),
+
+  /** Set OpenRouter API key */
+  setOpenrouterKey: (apiKey: string | null) => ipcRenderer.invoke('set-openrouter-key', apiKey),
+
+  /** Get Ollama models */
+  getOllamaModels: () => ipcRenderer.invoke('get-ollama-models'),
+
+  /** Set Ollama model */
+  setOllamaModel: (model: string) => ipcRenderer.invoke('set-ollama-model', model),
+
   /** Check whether a Notion token is configured */
   getNotionConfig: () => ipcRenderer.invoke('notion-get-config'),
 
@@ -58,7 +73,21 @@ const api = {
   ping: () => ipcRenderer.invoke('ping'),
 
   /** Open a note in Apple Notes */
-  openNote: (noteId: string) => ipcRenderer.send('open-note', noteId)
+  openNote: (noteId: string) => ipcRenderer.send('open-note', noteId),
+
+  /** Listen for search stream chunks */
+  onSearchStreamChunk: (callback: (chunk: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+    ipcRenderer.on('search-stream-chunk', handler);
+    return () => ipcRenderer.removeListener('search-stream-chunk', handler);
+  },
+
+  /** Listen for search stream completion */
+  onSearchStreamDone: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('search-stream-done', handler);
+    return () => ipcRenderer.removeListener('search-stream-done', handler);
+  }
 };
 
 contextBridge.exposeInMainWorld('api', Object.freeze(api));

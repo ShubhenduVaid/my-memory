@@ -12,11 +12,23 @@ interface SearchResult {
   score: number;
 }
 
+interface ProviderInfo {
+  name: string;
+  available: boolean;
+  capabilities: { supportsModelSelection: boolean; requiresApiKey: boolean };
+  error?: string;
+}
+
 interface RendererApi {
   search: (query: string) => Promise<SearchResult[]>;
   searchLocal: (query: string) => Promise<SearchResult[]>;
   getGeminiKeyStatus: () => Promise<{ hasKey: boolean }>;
   setGeminiKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getLlmConfig: () => Promise<{ provider: string; hasGeminiKey: boolean; hasOpenrouterKey: boolean; providers?: ProviderInfo[] }>;
+  setLlmProvider: (provider: string) => Promise<{ ok: boolean; provider: string }>;
+  setOpenrouterKey: (apiKey: string | null) => Promise<{ ok: boolean; hasKey: boolean }>;
+  getOllamaModels: () => Promise<{ models: string[]; current: string }>;
+  setOllamaModel: (model: string) => Promise<{ ok: boolean; model: string }>;
   getNotionConfig: () => Promise<{ hasToken: boolean }>;
   setNotionToken: (token: string | null) => Promise<{ ok: boolean; hasToken: boolean }>;
   syncNotionNow: () => Promise<{ ok: boolean }>;
@@ -30,6 +42,8 @@ interface RendererApi {
   syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
   ping?: () => Promise<string>;
+  onSearchStreamChunk?: (callback: (chunk: string) => void) => () => void;
+  onSearchStreamDone?: (callback: () => void) => () => void;
 }
 
 interface ObsidianConfig {
@@ -73,6 +87,14 @@ const notionSave = document.getElementById('notion-save') as HTMLButtonElement;
 const notionClear = document.getElementById('notion-clear') as HTMLButtonElement;
 const notionSync = document.getElementById('notion-sync') as HTMLButtonElement;
 const notionStatus = document.getElementById('notion-status') as HTMLDivElement;
+const llmProviderSelect = document.getElementById('llm-provider') as HTMLSelectElement;
+const geminiKeyRow = document.getElementById('gemini-key-row') as HTMLDivElement;
+const openrouterKeyRow = document.getElementById('openrouter-key-row') as HTMLDivElement;
+const openrouterKeyInput = document.getElementById('openrouter-key-input') as HTMLInputElement;
+const openrouterKeySave = document.getElementById('openrouter-key-save') as HTMLButtonElement;
+const openrouterKeyClear = document.getElementById('openrouter-key-clear') as HTMLButtonElement;
+const ollamaModelRow = document.getElementById('ollama-model-row') as HTMLDivElement;
+const ollamaModelSelect = document.getElementById('ollama-model') as HTMLSelectElement;
 
 // State
 let selectedIndex = -1;
@@ -86,9 +108,50 @@ let obsidianVaultList: string[] = [];
 let localFolderList: string[] = [];
 let localRecursiveEnabled = true;
 let notionHasToken = false;
+let currentLlmProvider = 'gemini';
+let providerInfoCache: ProviderInfo[] = [];
+let streamingContent = '';
+let isStreaming = false;
 
 // API accessor
 const apiBridge: RendererApi | undefined = (window as any).api;
+
+// Set up streaming listeners
+if (apiBridge?.onSearchStreamChunk) {
+  apiBridge.onSearchStreamChunk((chunk) => {
+    if (isStreaming) {
+      streamingContent += chunk;
+      // Update preview if AI answer is selected
+      if (selectedIndex === 0 && results[0]?.id === 'ai-streaming') {
+        previewContent.innerHTML = renderMarkdown(streamingContent) + '<span class="streaming-cursor">▊</span>';
+        previewContent.scrollTop = previewContent.scrollHeight;
+      }
+    }
+  });
+}
+
+if (apiBridge?.onSearchStreamDone) {
+  apiBridge.onSearchStreamDone(() => {
+    isStreaming = false;
+  });
+}
+
+/** Add streaming AI result to top of results list */
+function addStreamingAiResult(): void {
+  const streamingResult: SearchResult = {
+    id: 'ai-streaming',
+    title: '✨ AI Answer (streaming...)',
+    snippet: 'Generating response...',
+    content: '',
+    folder: 'AI Generated',
+    score: 1
+  };
+  
+  // Add to top of results, removing any existing streaming result
+  results = [streamingResult, ...results.filter(r => r.id !== 'ai-streaming' && r.id !== 'ai-answer')];
+  renderResults();
+  selectResult(0);
+}
 
 function formatQueryForLog(query: string): string {
   const normalized = query.replace(/\s+/g, ' ').trim();
@@ -138,9 +201,72 @@ if (pingPromise) {
 }
 
 function setApiKeyStatus(hasKey: boolean, message?: string): void {
-  const base = hasKey ? 'AI key saved' : 'AI key not set';
+  const provider = providerInfoCache.find(p => p.name === currentLlmProvider);
+  const providerName = currentLlmProvider === 'ollama' ? 'Ollama' : 
+    currentLlmProvider === 'openrouter' ? 'OpenRouter' : 'Gemini';
+  
+  let base: string;
+  if (provider?.error) {
+    base = `${providerName}: ${provider.error}`;
+  } else if (currentLlmProvider === 'ollama') {
+    base = 'Using local Ollama';
+  } else {
+    base = hasKey ? `${providerName} key saved` : `${providerName} key not set`;
+  }
+  
   apiKeyStatus.textContent = message ? `${base} - ${message}` : base;
-  apiKeyStatus.dataset.state = hasKey ? 'set' : 'unset';
+  apiKeyStatus.dataset.state = provider?.error ? 'error' : 
+    (currentLlmProvider === 'ollama' || hasKey ? 'set' : 'unset');
+}
+
+function updateProviderDropdown(): void {
+  const options = [
+    { value: 'gemini', label: 'Gemini' },
+    { value: 'openrouter', label: 'OpenRouter' },
+    { value: 'ollama', label: 'Ollama (local)' },
+  ];
+  
+  llmProviderSelect.innerHTML = options.map(opt => {
+    const info = providerInfoCache.find(p => p.name === opt.value);
+    let status = '';
+    if (info?.error) {
+      status = ' ✗';
+    } else if (info?.available) {
+      status = ' ✓';
+    } else if (info?.capabilities.requiresApiKey) {
+      status = ' (no key)';
+    }
+    return `<option value="${opt.value}">${opt.label}${status}</option>`;
+  }).join('');
+  
+  llmProviderSelect.value = currentLlmProvider;
+}
+
+function updateLlmProviderUI(): void {
+  geminiKeyRow.classList.toggle('hidden', currentLlmProvider !== 'gemini');
+  openrouterKeyRow.classList.toggle('hidden', currentLlmProvider !== 'openrouter');
+  ollamaModelRow.classList.toggle('hidden', currentLlmProvider !== 'ollama');
+  updateProviderDropdown();
+  if (currentLlmProvider === 'ollama') refreshOllamaModels();
+}
+
+async function refreshOllamaModels(): Promise<void> {
+  if (!apiBridge?.getOllamaModels) return;
+  try {
+    const { models, current } = await apiBridge.getOllamaModels();
+    const provider = providerInfoCache.find(p => p.name === 'ollama');
+    if (models.length === 0) {
+      const hint = provider?.error || 'No models - run: ollama pull llama3.2';
+      ollamaModelSelect.innerHTML = `<option value="" disabled selected>${hint}</option>`;
+    } else {
+      ollamaModelSelect.innerHTML = models.map(m => 
+        `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`
+      ).join('');
+    }
+  } catch (error) {
+    logError('getOllamaModels failed', error);
+    ollamaModelSelect.innerHTML = '<option value="" disabled selected>Error loading models</option>';
+  }
 }
 
 function toggleApiKeyPanel(force?: boolean): void {
@@ -346,7 +472,22 @@ async function saveLocalConfig(): Promise<void> {
   }
 }
 
-if (apiBridge?.getGeminiKeyStatus) {
+if (apiBridge?.getLlmConfig) {
+  apiBridge
+    .getLlmConfig()
+    .then(({ provider, hasGeminiKey, hasOpenrouterKey, providers }) => {
+      currentLlmProvider = provider;
+      providerInfoCache = providers || [];
+      updateLlmProviderUI();
+      const hasKey = provider === 'gemini' ? hasGeminiKey : 
+        provider === 'openrouter' ? hasOpenrouterKey : true;
+      setApiKeyStatus(hasKey);
+    })
+    .catch(error => {
+      setApiKeyStatus(false, 'status unavailable');
+      logError('getLlmConfig failed', error);
+    });
+} else if (apiBridge?.getGeminiKeyStatus) {
   apiBridge
     .getGeminiKeyStatus()
     .then(({ hasKey }) => setApiKeyStatus(hasKey))
@@ -410,6 +551,75 @@ apiKeyClear.addEventListener('click', async () => {
 });
 apiKeyInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') apiKeySave.click();
+});
+openrouterKeyInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') openrouterKeySave.click();
+});
+llmProviderSelect.addEventListener('change', async () => {
+  const provider = llmProviderSelect.value;
+  if (!apiBridge?.setLlmProvider) return;
+  
+  llmProviderSelect.disabled = true;
+  setApiKeyStatus(false, 'switching...');
+  
+  try {
+    const result = await apiBridge.setLlmProvider(provider);
+    currentLlmProvider = result.provider;
+    const config = await apiBridge.getLlmConfig?.();
+    providerInfoCache = config?.providers || [];
+    updateLlmProviderUI();
+    const hasKey = provider === 'gemini' ? config?.hasGeminiKey : 
+      provider === 'openrouter' ? config?.hasOpenrouterKey : true;
+    setApiKeyStatus(hasKey ?? false);
+  } catch (error) {
+    logError('setLlmProvider failed', error);
+    setApiKeyStatus(false, 'switch failed');
+  } finally {
+    llmProviderSelect.disabled = false;
+  }
+});
+openrouterKeySave.addEventListener('click', async () => {
+  if (!apiBridge?.setOpenrouterKey) return;
+  const key = openrouterKeyInput.value.trim();
+  if (!key) {
+    setApiKeyStatus(false, 'enter a key to save');
+    return;
+  }
+  openrouterKeySave.disabled = true;
+  try {
+    const result = await apiBridge.setOpenrouterKey(key);
+    setApiKeyStatus(result.hasKey, 'saved');
+    openrouterKeyInput.value = '';
+  } catch (error) {
+    logError('setOpenrouterKey failed', error);
+    setApiKeyStatus(false, 'save failed');
+  } finally {
+    openrouterKeySave.disabled = false;
+  }
+});
+openrouterKeyClear.addEventListener('click', async () => {
+  if (!apiBridge?.setOpenrouterKey) return;
+  openrouterKeyClear.disabled = true;
+  try {
+    const result = await apiBridge.setOpenrouterKey(null);
+    setApiKeyStatus(result.hasKey, 'cleared');
+    openrouterKeyInput.value = '';
+  } catch (error) {
+    logError('clearOpenrouterKey failed', error);
+    setApiKeyStatus(false, 'clear failed');
+  } finally {
+    openrouterKeyClear.disabled = false;
+  }
+});
+ollamaModelSelect.addEventListener('change', async () => {
+  if (!apiBridge?.setOllamaModel) return;
+  const model = ollamaModelSelect.value;
+  try {
+    await apiBridge.setOllamaModel(model);
+    setApiKeyStatus(true, `using ${model}`);
+  } catch (error) {
+    logError('setOllamaModel failed', error);
+  }
 });
 notionTokenInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') notionSave.click();
@@ -558,18 +768,26 @@ function handleInput(): void {
     const requestId = ++aiRequestId;
     aiInFlight = true;
     setSearchStatus('Searching with AI...');
-    if (results.length === 0) showEmptyState('Searching with AI...');
     log(`search start len=${query.length} "${formatQueryForLog(query)}"`);
+    
+    // Start streaming mode - add streaming result to list
+    isStreaming = true;
+    streamingContent = '';
+    addStreamingAiResult();
+    previewContent.innerHTML = '<span class="streaming-cursor">▊</span>';
+    
     try {
       const aiResults = await apiBridge.search(query);
       log(
         `search done results=${aiResults.length} (${Math.round(performance.now() - startedAt)}ms) "${formatQueryForLog(query)}"`
       );
+      isStreaming = false;
       if (requestId !== aiRequestId || searchInput.value.trim() !== query) return;
       applyResults(aiResults, true);
       setSearchStatus();
     } catch (error: unknown) {
       logError('search error', error);
+      isStreaming = false;
       if (requestId !== aiRequestId) return;
       if (results.length === 0) showEmptyState('Search failed (see logs)');
       setSearchStatus('AI search failed (see logs)');
@@ -687,8 +905,14 @@ function selectResult(index: number): void {
   const selected = results[selectedIndex];
   previewTitle.textContent = selected.title;
 
-  // Render markdown for AI answers
-  if (selected.id === 'ai-answer') {
+  // Handle streaming AI answer
+  if (selected.id === 'ai-streaming') {
+    if (streamingContent) {
+      previewContent.innerHTML = renderMarkdown(streamingContent) + '<span class="streaming-cursor">▊</span>';
+    } else {
+      previewContent.innerHTML = '<span class="streaming-cursor">▊</span>';
+    }
+  } else if (selected.id === 'ai-answer') {
     previewContent.innerHTML = renderMarkdown(selected.content || selected.snippet || '');
   } else {
     previewContent.textContent = selected.content || selected.snippet || '';

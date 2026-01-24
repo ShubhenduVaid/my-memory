@@ -72,3 +72,64 @@ export class PluginRegistry {
 
 /** Global plugin registry instance */
 export const pluginRegistry = new PluginRegistry();
+
+// ============================================================================
+// LLM Adapter Interface
+// ============================================================================
+
+/** Default timeout for LLM requests (60 seconds) */
+export const LLM_TIMEOUT_MS = 60000;
+
+/** Extended timeout for local models like Ollama (120 seconds) */
+export const LLM_LOCAL_TIMEOUT_MS = 120000;
+
+/** Request for LLM text generation */
+export interface LLMRequest {
+  prompt: string;
+  maxTokens?: number;
+}
+
+/** Response from LLM generation */
+export interface LLMResponse {
+  text: string;
+  model: string;
+}
+
+/** Callback for streaming chunks */
+export type StreamCallback = (chunk: string) => void;
+
+/** Configuration for LLM adapters */
+export interface LLMConfig {
+  apiKey?: string;
+  openrouterApiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+/** Capabilities that an LLM adapter supports */
+export interface LLMCapabilities {
+  supportsModelSelection: boolean;
+  supportsStreaming: boolean;
+  requiresApiKey: boolean;
+}
+
+/**
+ * Interface that all LLM adapters must implement.
+ */
+export interface ILLMAdapter {
+  readonly name: string;
+  readonly capabilities: LLMCapabilities;
+  initialize(config: LLMConfig): Promise<void>;
+  generate(request: LLMRequest): Promise<LLMResponse>;
+  generateStream?(request: LLMRequest, onChunk: StreamCallback): Promise<LLMResponse>;
+  isAvailable(): boolean;
+  getModels(): string[];
+  getCurrentModel(): string;
+  setModel(model: string): boolean;
+  getError?(): string | undefined;
+  clearSecrets?(): void;
+}
+
+/** Supported LLM providers */
+export const SUPPORTED_PROVIDERS = ['gemini', 'openrouter', 'ollama'] as const;
+export type LLMProvider = (typeof SUPPORTED_PROVIDERS)[number];
