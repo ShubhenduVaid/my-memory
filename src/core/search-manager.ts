@@ -4,8 +4,8 @@
  */
 
 import { cache } from './cache';
-import { Note, ILLMAdapter, llmRegistry, LLMConfig } from './types';
-import { GeminiAdapter, OpenRouterAdapter, OllamaAdapter } from '../adapters/llm';
+import { Note } from './types';
+import { LLMService } from './llm-service';
 
 /** Search result returned to the UI */
 export interface SearchResult {
@@ -27,7 +27,7 @@ const STOP_WORDS = new Set([
 ]);
 
 export class SearchManager {
-  private llm: ILLMAdapter | null = null;
+  private llmService: LLMService | null = null;
   private loggedEmptyCache = false;
 
   private getQueryTokens(query: string): string[] {
@@ -51,56 +51,9 @@ export class SearchManager {
     this.loggedEmptyCache = true;
   }
 
-  /** Initialize the search manager with LLM adapters */
-  async initialize(config?: LLMConfig & { provider?: string }): Promise<void> {
-    // Clear existing adapters to prevent pollution on re-init
-    llmRegistry.clear();
-
-    // Register all adapters
-    const gemini = new GeminiAdapter();
-    const openrouter = new OpenRouterAdapter();
-    const ollama = new OllamaAdapter();
-
-    llmRegistry.register(gemini);
-    llmRegistry.register(openrouter);
-    llmRegistry.register(ollama);
-
-    // Initialize all adapters
-    await Promise.all([
-      gemini.initialize(config || {}),
-      openrouter.initialize(config || {}),
-      ollama.initialize(config || {}),
-    ]);
-
-    // Set current adapter based on config or first available
-    const provider = config?.provider || 'gemini';
-    if (!llmRegistry.setCurrent(provider)) {
-      // Fallback to first available
-      for (const adapter of llmRegistry.getAll()) {
-        if (adapter.isAvailable()) {
-          llmRegistry.setCurrent(adapter.name);
-          break;
-        }
-      }
-    }
-
-    this.llm = llmRegistry.getCurrent();
-    console.log('[SearchManager] LLM:', this.llm?.name || 'none available');
-  }
-
-  /** Get Ollama models and current selection */
-  getOllamaInfo(): { models: string[]; current: string } {
-    const ollama = llmRegistry.get('ollama');
-    return {
-      models: ollama?.getModels?.() || [],
-      current: ollama?.getCurrentModel?.() || '',
-    };
-  }
-
-  /** Set Ollama model */
-  setOllamaModel(model: string): void {
-    const ollama = llmRegistry.get('ollama');
-    ollama?.setModel?.(model);
+  /** Set the LLM service (dependency injection) */
+  setLLMService(service: LLMService): void {
+    this.llmService = service;
   }
 
   /**
@@ -139,18 +92,13 @@ export class SearchManager {
     return this.smartSearch(query, notes);
   }
 
-  /** Try to generate an AI answer using the current LLM adapter */
+  /** Try to generate an AI answer using the LLM service */
   private async tryGenerateAnswer(query: string, matches: SearchResult[]): Promise<string | null> {
-    if (!this.llm) return null;
+    if (!this.llmService?.isAvailable()) return null;
 
-    try {
-      const prompt = this.buildPrompt(query, matches);
-      const response = await this.llm.generate({ prompt });
-      return response.text || null;
-    } catch (error) {
-      console.error('[SearchManager] LLM error:', error);
-      return null;
-    }
+    const prompt = this.buildPrompt(query, matches);
+    const response = await this.llmService.generate({ prompt });
+    return response?.text || null;
   }
 
   private buildPrompt(query: string, notes: SearchResult[]): string {

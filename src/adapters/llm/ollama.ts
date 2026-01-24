@@ -2,13 +2,14 @@
  * Ollama LLM adapter for local model inference.
  */
 
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_LOCAL_TIMEOUT_MS } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_LOCAL_TIMEOUT_MS, LLMCapabilities } from '../../core/types';
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_MODEL = 'llama3.1';
 
 export class OllamaAdapter implements ILLMAdapter {
   readonly name = 'ollama';
+  readonly capabilities: LLMCapabilities = { supportsModelSelection: true, requiresApiKey: false };
   private baseUrl: string = DEFAULT_BASE_URL;
   private model: string = DEFAULT_MODEL;
   private available = false;

@@ -2,13 +2,14 @@
  * OpenRouter LLM adapter for accessing multiple models via OpenRouter API.
  */
 
-import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS } from '../../core/types';
+import { ILLMAdapter, LLMConfig, LLMRequest, LLMResponse, LLM_TIMEOUT_MS, LLMCapabilities } from '../../core/types';
 
 const DEFAULT_MODEL = 'deepseek/deepseek-r1-0528:free';
 const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export class OpenRouterAdapter implements ILLMAdapter {
   readonly name = 'openrouter';
+  readonly capabilities: LLMCapabilities = { supportsModelSelection: false, requiresApiKey: true };
   private apiKey: string | null = null;
   private model: string = DEFAULT_MODEL;
 
@@ -24,6 +25,18 @@ export class OpenRouterAdapter implements ILLMAdapter {
 
   isAvailable(): boolean {
     return !!this.apiKey;
+  }
+
+  getModels(): string[] {
+    return [this.model];
+  }
+
+  getCurrentModel(): string {
+    return this.model;
+  }
+
+  setModel(_model: string): boolean {
+    return false;
   }
 
   async generate(request: LLMRequest): Promise<LLMResponse> {

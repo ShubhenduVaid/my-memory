@@ -103,57 +103,26 @@ export interface LLMConfig {
   model?: string;
 }
 
+/** Capabilities that an LLM adapter supports */
+export interface LLMCapabilities {
+  supportsModelSelection: boolean;
+  requiresApiKey: boolean;
+}
+
 /**
  * Interface that all LLM adapters must implement.
  */
 export interface ILLMAdapter {
   readonly name: string;
+  readonly capabilities: LLMCapabilities;
   initialize(config: LLMConfig): Promise<void>;
   generate(request: LLMRequest): Promise<LLMResponse>;
   isAvailable(): boolean;
-  getModels?(): string[];
-  getCurrentModel?(): string;
-  setModel?(model: string): boolean;
+  getModels(): string[];
+  getCurrentModel(): string;
+  setModel(model: string): boolean;
 }
 
 /** Supported LLM providers */
 export const SUPPORTED_PROVIDERS = ['gemini', 'openrouter', 'ollama'] as const;
-export type LLMProvider = typeof SUPPORTED_PROVIDERS[number];
-
-/** Registry for managing LLM adapters */
-export class LLMRegistry {
-  private adapters = new Map<string, ILLMAdapter>();
-  private current: ILLMAdapter | null = null;
-
-  clear(): void {
-    this.adapters.clear();
-    this.current = null;
-  }
-
-  register(adapter: ILLMAdapter): void {
-    this.adapters.set(adapter.name, adapter);
-  }
-
-  get(name: string): ILLMAdapter | undefined {
-    return this.adapters.get(name);
-  }
-
-  getAll(): ILLMAdapter[] {
-    return Array.from(this.adapters.values());
-  }
-
-  setCurrent(name: string): boolean {
-    const adapter = this.adapters.get(name);
-    if (adapter?.isAvailable()) {
-      this.current = adapter;
-      return true;
-    }
-    return false;
-  }
-
-  getCurrent(): ILLMAdapter | null {
-    return this.current;
-  }
-}
-
-export const llmRegistry = new LLMRegistry();
+export type LLMProvider = (typeof SUPPORTED_PROVIDERS)[number];

@@ -34,6 +34,7 @@ import { LocalFilesAdapter } from '../adapters/local-files';
 import { NotionAdapter } from '../adapters/notion';
 import { cache } from '../core/cache';
 import { SearchManager } from '../core/search-manager';
+import { LLMService } from '../core/llm-service';
 import { readUserConfig, writeUserConfig } from './user-config';
 import { updateService } from './update-service';
 
@@ -41,6 +42,7 @@ import { updateService } from './update-service';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+const llmService = new LLMService();
 const searchManager = new SearchManager();
 const obsidianAdapter = new ObsidianAdapter();
 const localFilesAdapter = new LocalFilesAdapter();
@@ -230,13 +232,14 @@ async function initializeApp(): Promise<void> {
     await syncNotes();
   }
 
-  // Initialize search
+  // Initialize LLM service and inject into search manager
   const config = readUserConfig();
-  await searchManager.initialize({ 
-    apiKey: config.geminiApiKey, 
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
     openrouterApiKey: config.openrouterApiKey,
-    provider: config.llmProvider 
+    provider: config.llmProvider,
   });
+  searchManager.setLLMService(llmService);
 }
 
 // Application lifecycle
@@ -371,10 +374,10 @@ ipcMain.handle('set-gemini-key', async (_event, apiKey: string | null | undefine
   const geminiApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ geminiApiKey });
   const config = readUserConfig();
-  await searchManager.initialize({ 
-    apiKey: config.geminiApiKey, 
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
     openrouterApiKey: config.openrouterApiKey,
-    provider: config.llmProvider 
+    provider: config.llmProvider,
   });
   return { ok: true, hasKey: Boolean(geminiApiKey) };
 });
@@ -394,7 +397,7 @@ ipcMain.handle('set-llm-provider', async (_event, provider: string) => {
   }
   writeUserConfig({ llmProvider: provider as LLMProvider });
   const config = readUserConfig();
-  await searchManager.initialize({
+  await llmService.initialize({
     apiKey: config.geminiApiKey,
     openrouterApiKey: config.openrouterApiKey,
     provider: config.llmProvider,
@@ -407,21 +410,21 @@ ipcMain.handle('set-openrouter-key', async (_event, apiKey: string | null | unde
   const openrouterApiKey = trimmed.length > 0 ? trimmed : undefined;
   writeUserConfig({ openrouterApiKey });
   const config = readUserConfig();
-  await searchManager.initialize({ 
-    apiKey: config.geminiApiKey, 
+  await llmService.initialize({
+    apiKey: config.geminiApiKey,
     openrouterApiKey: config.openrouterApiKey,
-    provider: config.llmProvider 
+    provider: config.llmProvider,
   });
   return { ok: true, hasKey: Boolean(openrouterApiKey) };
 });
 
 ipcMain.handle('get-ollama-models', () => {
-  return searchManager.getOllamaInfo();
+  return { models: llmService.getModels(), current: llmService.getCurrentModel() };
 });
 
 ipcMain.handle('set-ollama-model', (_event, model: string) => {
-  searchManager.setOllamaModel(model);
-  return { ok: true, model };
+  const success = llmService.setModel(model);
+  return { ok: success, model: success ? model : llmService.getCurrentModel() };
 });
 
 ipcMain.handle('notion-get-config', () => {
