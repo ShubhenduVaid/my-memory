@@ -6,6 +6,7 @@
 import { cache } from './cache';
 import { Note, StreamCallback } from './types';
 import { LLMService } from './llm-service';
+import { scoreNote } from './scoring';
 
 /** Search result returned to the UI */
 export interface SearchResult {
@@ -212,7 +213,7 @@ Answer now.`;
     // Score and rank notes
     const scored = notes.map(note => ({
       note,
-      score: this.scoreNote(note, queryWords)
+      score: scoreNote(note, queryWords)
     }));
 
     return scored
@@ -220,21 +221,6 @@ Answer now.`;
       .sort((a, b) => b.score - a.score)
       .slice(0, 20)
       .map(item => this.noteToResult(item.note, item.score / (queryWords.length * 3)));
-  }
-
-  /** Score a note based on query word matches */
-  private scoreNote(note: Note, queryWords: string[]): number {
-    const titleLower = note.title.toLowerCase();
-    const contentLower = note.content.toLowerCase();
-    const folderLower = (note.metadata?.folder as string || '').toLowerCase();
-
-    let score = 0;
-    for (const word of queryWords) {
-      if (titleLower.includes(word)) score += 3;
-      if (folderLower.includes(word)) score += 2;
-      if (contentLower.includes(word)) score += 1;
-    }
-    return score;
   }
 
   /** Simple substring search fallback */
