@@ -53,11 +53,16 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
     "better-sqlite3": "^9.2.2",
     "dotenv": "^17.2.3",
     "electron-log": "^5.1.2",
     "electron-updater": "^6.1.7",
-    "pdf-parse": "^1.1.1"
+    "liquid-glass-react": "^1.1.1",
+    "pdf-parse": "^1.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "build": {
     "appId": "com.mymemory.app",

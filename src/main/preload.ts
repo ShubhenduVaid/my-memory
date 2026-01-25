@@ -87,6 +87,16 @@ const api = {
     const handler = () => callback();
     ipcRenderer.on('search-stream-done', handler);
     return () => ipcRenderer.removeListener('search-stream-done', handler);
+  },
+
+  /** Get system theme (dark mode) */
+  getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
+
+  /** Listen for theme changes */
+  onThemeChange: (callback: (isDark: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, isDark: boolean) => callback(isDark);
+    ipcRenderer.on('theme-changed', handler);
+    return () => ipcRenderer.removeListener('theme-changed', handler);
   }
 };
 
