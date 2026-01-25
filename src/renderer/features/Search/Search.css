@@ -12,25 +12,26 @@
   -webkit-app-region: no-drag;
 }
 
-/* Content area layout */
-#content {
+/* Content area layout - use !important to override global.css */
+#app > #content {
   display: flex;
   flex: 1;
-  min-height: 0; /* Critical for flex children to scroll */
+  min-height: 0;
+  overflow: visible !important;
 }
 
 #app {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden;
 }
 
-.search-results {
+#app > #content > .search-results {
   width: 280px;
   min-width: 280px;
+  max-width: 280px;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  overflow-y: auto;
+  overflow-y: auto !important;
   overflow-x: hidden;
   flex-shrink: 0;
 }
@@ -74,10 +75,10 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-.note-preview {
+#app > #content > .note-preview {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: auto !important;
   overflow-x: hidden;
   min-width: 0;
 }
