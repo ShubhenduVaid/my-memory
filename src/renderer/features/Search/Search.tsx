@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api, SearchResult } from '../../shared/api';
-import { GlassPanel } from '../../shared/ui';
 
 export const SearchBar: React.FC<{
   onSearch: (query: string) => void;
@@ -17,7 +16,7 @@ export const SearchBar: React.FC<{
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (value.trim()) onSearch(value);
-    }, 300);
+    }, 500); // Increased debounce to reduce race conditions
   }, [onSearch, onQueryChange]);
 
   return (
@@ -39,9 +38,11 @@ export const SearchResults: React.FC<{
   selectedIndex: number;
   onSelect: (index: number) => void;
   onOpen: (result: SearchResult) => void;
-}> = ({ results, selectedIndex, onSelect, onOpen }) => (
+  isLoading?: boolean;
+}> = ({ results, selectedIndex, onSelect, onOpen, isLoading }) => (
   <div className="search-results" role="listbox" aria-label="Search results">
-    {results.length === 0 ? (
+    {isLoading && <div className="search-loading">Searching...</div>}
+    {!isLoading && results.length === 0 ? (
       <div className="search-empty">No results found</div>
     ) : (
       results.map((result, i) => (
@@ -92,6 +93,7 @@ export function useSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const searchIdRef = useRef(0); // Track which search is current
 
   useEffect(() => {
     const chunkUnsub = api.onSearchStreamChunk?.((chunk) => {
@@ -107,14 +109,23 @@ export function useSearch() {
   }, []);
 
   const search = useCallback(async (query: string) => {
+    const currentSearchId = ++searchIdRef.current; // Increment and capture
     setIsLoading(true);
     setStreamingContent('');
+    
     try {
       const res = await api.search(query);
-      setResults(res);
-      setSelectedIndex(0);
-    } finally {
-      setIsLoading(false);
+      
+      // Only update if this is still the latest search
+      if (currentSearchId === searchIdRef.current) {
+        setResults(res);
+        setSelectedIndex(0);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      if (currentSearchId === searchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 

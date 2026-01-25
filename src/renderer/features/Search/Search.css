@@ -52,6 +52,12 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.search-loading {
+  padding: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .note-preview {
   flex: 1;
   padding: 20px;
