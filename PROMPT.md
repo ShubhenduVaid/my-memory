@@ -1,32 +1,21 @@
-# Current Feature: Remaining Phase 1 Deliverables
+# Current Feature: Apple-native Feel (P0)
 
 Reference: /Users/shubhenduvaid/workspace/poc/my-memory/docs/STRATEGIC_ROADMAP.md
 
-## Completed P0:
-- ✅ Sub-200ms search performance
-- ✅ README marketing rewrite
-- ✅ Obsidian plugin scaffold
+## Requirements
 
-## Remaining Phase 1 Deliverables:
+Implement Apple-native feel for the app:
 
-### 1. Polished Onboarding Flow (3 screens max)
-- Welcome screen with value prop
-- API key setup (Gemini)
-- Source selection (Apple Notes, Obsidian, Local Files)
+1. **Smooth animations** - Transitions and UI interactions feel native
+2. **Proper dark mode** - Respects system appearance, proper color scheme
+3. **Native fonts** - Use system fonts (SF Pro on macOS)
 
-### 2. Homebrew Formula
-- Create homebrew formula for easy installation
-- `brew install my-memory`
+## Success Criteria
 
-### 3. Demo Assets (placeholders)
-- Create placeholder structure for demo.gif
-- Create placeholder structure for demo video
+- Dark mode toggle or system preference detection
+- Smooth fade/slide animations on search overlay
+- Native macOS typography
 
-## Success Criteria:
-- Onboarding flow implemented with max 3 screens
-- Homebrew formula created and tested locally
-- Asset placeholders documented
-
-After completing each feature:
+After completing this feature:
 - Run all tests
-- git add -A && git commit -m "feat: <description>" && git push
+- git add -A && git commit -m "feat: apple-native feel with dark mode and animations" && git push
