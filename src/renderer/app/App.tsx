@@ -11,7 +11,7 @@ export const App: React.FC = () => {
   const [view, setView] = useState<View>('search');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const { isOpen, close } = useCommandPalette();
-  const { results, selectedIndex, setSelectedIndex, streamingContent, search, openNote, selectedResult } = useSearch();
+  const { results, selectedIndex, setSelectedIndex, streamingContent, search, openNote, selectedResult, isLoading } = useSearch();
 
   const handleSearch = useCallback((query: string) => {
     search(query);
@@ -40,6 +40,7 @@ export const App: React.FC = () => {
               selectedIndex={selectedIndex}
               onSelect={setSelectedIndex}
               onOpen={openNote}
+              isLoading={isLoading}
             />
             <NotePreview result={selectedResult} streamingContent={streamingContent} />
           </div>
