@@ -31,6 +31,7 @@
   "scripts": {
     "build": "tsc && node scripts/copy-renderer-assets.js",
     "start": "npm run build && electron .",
+    "test": "vitest run",
     "dist": "npm run build && electron-builder",
     "release": "npm run build && electron-builder --publish always",
     "release:mac": "npm run build && electron-builder --mac --publish always",
@@ -44,10 +45,11 @@
     "@electron/notarize": "^2.2.1",
     "@electron/rebuild": "^3.6.0",
     "@types/better-sqlite3": "^7.6.8",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.30",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
