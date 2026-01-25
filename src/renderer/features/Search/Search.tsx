@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api, SearchResult } from '../../shared/api';
-import { GlassInput, GlassPanel } from '../../shared/ui';
-import './Search.css';
+import { GlassPanel } from '../../shared/ui';
 
 export const SearchBar: React.FC<{
   onSearch: (query: string) => void;
@@ -10,7 +9,8 @@ export const SearchBar: React.FC<{
   const [query, setQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleChange = useCallback((value: string) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setQuery(value);
     onQueryChange?.(value);
     
@@ -22,11 +22,13 @@ export const SearchBar: React.FC<{
 
   return (
     <div className="search-bar">
-      <GlassInput
+      <input
+        type="text"
         value={query}
         onChange={handleChange}
         placeholder="Search your notes..."
         autoFocus
+        className="glass-input"
       />
     </div>
   );
@@ -66,7 +68,7 @@ export const NotePreview: React.FC<{
   if (!result) {
     return (
       <div className="note-preview">
-        <div className="preview-title">Select a note to preview</div>
+        <div className="preview-placeholder">Select a note to preview</div>
       </div>
     );
   }
@@ -74,14 +76,14 @@ export const NotePreview: React.FC<{
   const content = streamingContent || result.snippet || result.content || '';
 
   return (
-    <GlassPanel className="note-preview" padding="20px">
+    <div className="note-preview">
       <div className="preview-title">{result.title}</div>
       <div 
         className="preview-content"
         dangerouslySetInnerHTML={{ __html: content }}
       />
       {streamingContent && <span className="streaming-cursor">▌</span>}
-    </GlassPanel>
+    </div>
   );
 };
 

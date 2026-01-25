@@ -79,7 +79,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, isOpen
   return (
     <div className="command-palette-overlay" onClick={onClose}>
       <div className="command-palette-container" onClick={(e) => e.stopPropagation()}>
-        <GlassPanel className="command-palette" padding="0" cornerRadius={16}>
+        <GlassPanel className="command-palette" padding="0">
           <div className="command-palette-input-wrapper">
             <input
               ref={inputRef}

@@ -52,7 +52,7 @@ export const BentoGrid: React.FC<BentoGridProps> = ({ tiles, onLayoutChange, ren
       >
         {tiles.map((tile) => (
           <div key={tile.id} className={`bento-tile ${dragging === tile.id ? 'dragging' : ''}`}>
-            <GlassPanel className="tile-content" padding="16px" cornerRadius={16}>
+            <GlassPanel className="tile-content" padding="16px">
               <div className="tile-header">
                 <span className="tile-title">{tile.title}</span>
                 <span className="tile-drag-handle">⋮⋮</span>
