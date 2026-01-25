@@ -13,7 +13,8 @@ import {
   dialog,
   Menu,
   shell,
-  session
+  session,
+  nativeTheme
 } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -392,6 +393,15 @@ ipcMain.handle('search-local', async (_event, query: string) => {
 ipcMain.handle('ping', () => {
   console.log('[IPC] ping');
   return 'pong';
+});
+
+ipcMain.handle('get-system-theme', () => {
+  return nativeTheme.shouldUseDarkColors;
+});
+
+// Notify renderer when system theme changes
+nativeTheme.on('updated', () => {
+  mainWindow?.webContents.send('theme-changed', nativeTheme.shouldUseDarkColors);
 });
 
 ipcMain.handle('get-gemini-key-status', () => {

@@ -1,0 +1,41 @@
+/* Liquid Glass CSS Fallback and Accessibility */
+
+/* SVG filter for CSS-only glass effect fallback */
+.glass-svg-filter {
+  display: none;
+}
+
+/* Base glass styles */
+.glass-panel,
+.glass-button,
+.glass-input {
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Reduced transparency fallback - WCAG 2.2 compliance */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel,
+  .glass-button,
+  .glass-input {
+    backdrop-filter: none !important;
+    filter: none !important;
+    background: var(--bg-solid-opaque, rgba(40, 40, 40, 0.98)) !important;
+    border: 1px solid var(--border-solid, rgba(255, 255, 255, 0.2)) !important;
+  }
+}
+
+/* Focus styles for accessibility */
+.glass-button:focus-within,
+.glass-input:focus-within {
+  outline: 2px solid #007AFF;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
+}
+
+/* Disabled state */
+.glass-button.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
