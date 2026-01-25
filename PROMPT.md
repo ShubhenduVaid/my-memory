@@ -1,24 +1,32 @@
-# Current Feature: README Marketing Rewrite (P0)
+# Current Feature: Remaining Phase 1 Deliverables
 
 Reference: /Users/shubhenduvaid/workspace/poc/my-memory/docs/STRATEGIC_ROADMAP.md
 
-## Requirements
+## Completed P0:
+- ✅ Sub-200ms search performance
+- ✅ README marketing rewrite
+- ✅ Obsidian plugin scaffold
 
-Rewrite README.md as a marketing-focused sales page:
+## Remaining Phase 1 Deliverables:
 
-1. **Hero screenshot** - Prominent visual showing the app in action
-2. **"Why My Memory" section** - Clear value proposition
-3. **Comparison table** - vs Rewind, Khoj, Glean, Raycast
-4. **Demo GIF placeholder** - 10-second loop showing search → result → open note
-5. **One-liner install** - `brew install my-memory` or single DMG
+### 1. Polished Onboarding Flow (3 screens max)
+- Welcome screen with value prop
+- API key setup (Gemini)
+- Source selection (Apple Notes, Obsidian, Local Files)
 
-## Success Criteria
+### 2. Homebrew Formula
+- Create homebrew formula for easy installation
+- `brew install my-memory`
 
-- README has marketing-focused structure
-- Includes comparison table with competitors
-- Clear installation instructions
-- Professional badges and formatting
+### 3. Demo Assets (placeholders)
+- Create placeholder structure for demo.gif
+- Create placeholder structure for demo video
 
-After completing this feature:
+## Success Criteria:
+- Onboarding flow implemented with max 3 screens
+- Homebrew formula created and tested locally
+- Asset placeholders documented
+
+After completing each feature:
 - Run all tests
-- git add -A && git commit -m "docs: marketing-focused README rewrite" && git push
+- git add -A && git commit -m "feat: <description>" && git push

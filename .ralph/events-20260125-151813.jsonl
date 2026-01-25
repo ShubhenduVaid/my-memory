@@ -1,0 +1,4 @@
+{"payload":"Remaining Phase 1: 1) Onboarding flow (3 screens: welcome, API key, source selection), 2) Homebrew formula, 3) Demo asset placeholders","topic":"tdd.start","ts":"2026-01-25T15:18:48.401101+00:00"}
+{"payload":"Feature: Onboarding flow. Write failing tests for 3-screen onboarding: 1) Welcome screen with value prop, 2) API key setup (Gemini), 3) Source selection (Apple Notes, Obsidian, Local Files). Tests should verify screen navigation, state persistence, and skip-to-main functionality.","topic":"tdd.start","ts":"2026-01-25T15:20:05.405222+00:00"}
+{"payload":"tests/onboarding.test.ts: 8 failing tests for onboarding flow (navigation, state persistence, skip-to-main)","topic":"test.written","ts":"2026-01-25T15:21:19.479939+00:00"}
+{"payload":"onboarding: 8/8 tests green","topic":"test.passing","ts":"2026-01-25T15:22:05.034684+00:00"}
