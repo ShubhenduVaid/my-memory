@@ -1,5 +1,0 @@
-{"payload":"Obsidian plugin scaffold - vault detection, command palette, bidirectional linking","topic":"tdd.start","ts":"2026-01-25T13:52:02.230137+00:00"}
-{"payload":"delegate to Test Writer: write failing tests for Obsidian plugin scaffold - vault detection, command palette integration, bidirectional linking","topic":"test.written","ts":"2026-01-25T13:52:48.816722+00:00"}
-{"payload":"tests/obsidian-plugin.test.ts - 3 failing tests for vault detection, command palette, bidirectional linking","topic":"test.written","ts":"2026-01-25T13:53:22.296581+00:00"}
-{"payload":"obsidian-plugin: 3/3 tests green - vault detection, command palette, bidirectional linking","topic":"test.passing","ts":"2026-01-25T13:54:09.034399+00:00"}
-{"payload":"obsidian-plugin: vault detection, command palette, bidirectional linking - committed c987be6","topic":"cycle.complete","ts":"2026-01-25T13:55:01.720537+00:00"}

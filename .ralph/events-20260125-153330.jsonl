@@ -1,4 +1,0 @@
-{"payload":"Apple-native feel: dark mode, smooth animations, native fonts","topic":"tdd.start","ts":"2026-01-25T15:33:45.634745+00:00"}
-{"payload":"tests/apple-native-feel.test.ts - all 9 tests pass (feature already implemented)","topic":"test.written","ts":"2026-01-25T15:35:08.682473+00:00"}
-{"payload":"tests/apple-native-feel.test.ts - 9 tests green, ready for refactor","topic":"test.passing","ts":"2026-01-25T15:35:43.103369+00:00"}
-{"payload":"Apple-native feel feature complete: 9 tests green, committed 0c46ff9","topic":"cycle.complete","ts":"2026-01-25T15:37:08.421267+00:00"}
