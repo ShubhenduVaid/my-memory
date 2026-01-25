@@ -1,29 +1,15 @@
 import React from 'react';
-import LiquidGlass from 'liquid-glass-react';
 
 interface GlassPanelProps {
   children: React.ReactNode;
   className?: string;
   padding?: string;
-  cornerRadius?: number;
 }
 
-export const GlassPanel: React.FC<GlassPanelProps> = ({ 
-  children, 
-  className = '', 
-  padding = '16px',
-  cornerRadius = 12
-}) => (
-  <LiquidGlass
-    className={`glass-panel ${className}`}
-    padding={padding}
-    cornerRadius={cornerRadius}
-    blurAmount={0.05}
-    saturation={140}
-    displacementScale={50}
-  >
+export const GlassPanel: React.FC<GlassPanelProps> = ({ children, className = '', padding = '16px' }) => (
+  <div className={`glass-panel ${className}`} style={{ padding }}>
     {children}
-  </LiquidGlass>
+  </div>
 );
 
 interface GlassButtonProps {
@@ -31,30 +17,16 @@ interface GlassButtonProps {
   onClick?: () => void;
   className?: string;
   disabled?: boolean;
-  type?: 'button' | 'submit';
 }
 
-export const GlassButton: React.FC<GlassButtonProps> = ({ 
-  children, 
-  onClick, 
-  className = '',
-  disabled = false,
-  type = 'button'
-}) => (
-  <LiquidGlass
-    className={`glass-button ${className} ${disabled ? 'disabled' : ''}`}
-    padding="8px 16px"
-    cornerRadius={8}
-    blurAmount={0.04}
-    saturation={130}
-    displacementScale={40}
-    elasticity={0.25}
-    onClick={disabled ? undefined : onClick}
+export const GlassButton: React.FC<GlassButtonProps> = ({ children, onClick, className = '', disabled = false }) => (
+  <button 
+    className={`glass-button ${className}`} 
+    onClick={onClick} 
+    disabled={disabled}
   >
-    <button type={type} disabled={disabled} style={{ all: 'unset', cursor: disabled ? 'not-allowed' : 'pointer' }}>
-      {children}
-    </button>
-  </LiquidGlass>
+    {children}
+  </button>
 );
 
 interface GlassInputProps {
@@ -74,26 +46,12 @@ export const GlassInput: React.FC<GlassInputProps> = ({
   className = '',
   autoFocus = false
 }) => (
-  <LiquidGlass
+  <input
+    type={type}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    placeholder={placeholder}
+    autoFocus={autoFocus}
     className={`glass-input ${className}`}
-    padding="12px 16px"
-    cornerRadius={8}
-    blurAmount={0.03}
-    saturation={120}
-    displacementScale={30}
-  >
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoFocus={autoFocus}
-      style={{
-        all: 'unset',
-        width: '100%',
-        color: 'inherit',
-        fontSize: 'inherit'
-      }}
-    />
-  </LiquidGlass>
+  />
 );

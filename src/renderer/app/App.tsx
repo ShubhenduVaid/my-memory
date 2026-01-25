@@ -2,11 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useSystemTheme } from '../shared/hooks/useSystemTheme';
 import { CommandPalette, useCommandPalette, Command } from '../widgets/CommandPalette';
 import { SearchBar, SearchResults, NotePreview, useSearch } from '../features/Search';
-import { BentoGrid, TileData, RecentSearchesTile, SourceStatusTile, QuickActionsTile } from '../widgets/BentoGrid';
 import { api } from '../shared/api';
-import '../shared/styles/global.css';
-import '../shared/styles/theme.css';
-import '../shared/styles/glass.css';
 
 type View = 'dashboard' | 'search';
 
@@ -31,33 +27,6 @@ export const App: React.FC = () => {
     { id: 'sync-notion', label: 'Sync Notion', action: () => api.syncNotionNow(), category: 'action' },
   ];
 
-  const tiles: TileData[] = [
-    { id: 'recent-searches', type: 'recent-searches', title: 'Recent Searches' },
-    { id: 'source-status', type: 'source-status', title: 'Sources' },
-    { id: 'quick-actions', type: 'quick-actions', title: 'Quick Actions' },
-  ];
-
-  const sources = [
-    { name: 'Apple Notes', connected: true },
-    { name: 'Obsidian', connected: false },
-    { name: 'Local Files', connected: false },
-    { name: 'Notion', connected: false },
-  ];
-
-  const quickActions = [
-    { label: 'New Search', onClick: () => setView('search') },
-    { label: 'Sync All', onClick: () => { api.syncObsidianNow(); api.syncLocalNow(); api.syncNotionNow(); } },
-  ];
-
-  const renderTile = (tile: TileData) => {
-    switch (tile.type) {
-      case 'recent-searches': return <RecentSearchesTile searches={recentSearches} />;
-      case 'source-status': return <SourceStatusTile sources={sources} />;
-      case 'quick-actions': return <QuickActionsTile actions={quickActions} />;
-      default: return null;
-    }
-  };
-
   return (
     <div id="app">
       <CommandPalette commands={commands} isOpen={isOpen} onClose={close} />
@@ -76,8 +45,12 @@ export const App: React.FC = () => {
           </div>
         </>
       ) : (
-        <div style={{ padding: 16, height: '100%' }}>
-          <BentoGrid tiles={tiles} renderTile={renderTile} />
+        <div style={{ padding: 16, paddingTop: 50 }}>
+          <h2 style={{ color: '#fff', marginBottom: 16 }}>Dashboard</h2>
+          <p style={{ color: 'rgba(255,255,255,0.6)' }}>Recent searches: {recentSearches.length}</p>
+          <button className="glass-button" onClick={() => setView('search')} style={{ marginTop: 16 }}>
+            Back to Search
+          </button>
         </div>
       )}
     </div>
