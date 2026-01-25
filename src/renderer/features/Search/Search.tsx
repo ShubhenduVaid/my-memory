@@ -3,21 +3,19 @@ import { api, SearchResult } from '../../shared/api';
 
 export const SearchBar: React.FC<{
   onSearch: (query: string) => void;
-  onQueryChange?: (query: string) => void;
-}> = ({ onSearch, onQueryChange }) => {
+}> = ({ onSearch }) => {
   const [query, setQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-    onQueryChange?.(value);
     
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (value.trim()) onSearch(value);
-    }, 500); // Increased debounce to reduce race conditions
-  }, [onSearch, onQueryChange]);
+    }, 300);
+  }, [onSearch]);
 
   return (
     <div className="search-bar">
@@ -41,7 +39,7 @@ export const SearchResults: React.FC<{
   isLoading?: boolean;
 }> = ({ results, selectedIndex, onSelect, onOpen, isLoading }) => (
   <div className="search-results" role="listbox" aria-label="Search results">
-    {isLoading && <div className="search-loading">Searching...</div>}
+    {isLoading && results.length === 0 && <div className="search-loading">Searching...</div>}
     {!isLoading && results.length === 0 ? (
       <div className="search-empty">No results found</div>
     ) : (
@@ -74,7 +72,11 @@ export const NotePreview: React.FC<{
     );
   }
 
-  const content = streamingContent || result.snippet || result.content || '';
+  // For AI answer, show streaming content or final content
+  const isAiAnswer = result.id === 'ai-answer' || result.id === 'ai-streaming';
+  const content = isAiAnswer 
+    ? (streamingContent || result.content || result.snippet || '')
+    : (result.snippet || result.content || '');
 
   return (
     <div className="note-preview">
@@ -83,7 +85,7 @@ export const NotePreview: React.FC<{
         className="preview-content"
         dangerouslySetInnerHTML={{ __html: content }}
       />
-      {streamingContent && <span className="streaming-cursor">▌</span>}
+      {isAiAnswer && streamingContent && <span className="streaming-cursor">▌</span>}
     </div>
   );
 };
@@ -93,14 +95,14 @@ export function useSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const searchIdRef = useRef(0); // Track which search is current
+  const searchIdRef = useRef(0);
 
   useEffect(() => {
     const chunkUnsub = api.onSearchStreamChunk?.((chunk) => {
       setStreamingContent((prev) => prev + chunk);
     });
     const doneUnsub = api.onSearchStreamDone?.(() => {
-      setStreamingContent('');
+      // Streaming done - content is now in the AI result
     });
     return () => {
       chunkUnsub?.();
@@ -109,19 +111,29 @@ export function useSearch() {
   }, []);
 
   const search = useCallback(async (query: string) => {
-    const currentSearchId = ++searchIdRef.current; // Increment and capture
+    const currentSearchId = ++searchIdRef.current;
     setIsLoading(true);
     setStreamingContent('');
     
     try {
-      const res = await api.search(query);
+      // First, get local results immediately (fast)
+      const localResults = await api.searchLocal(query);
       
-      // Only update if this is still the latest search
-      if (currentSearchId === searchIdRef.current) {
-        setResults(res);
-        setSelectedIndex(0);
-        setIsLoading(false);
-      }
+      if (currentSearchId !== searchIdRef.current) return;
+      
+      // Show local results right away
+      setResults(localResults);
+      setSelectedIndex(0);
+      setIsLoading(false);
+      
+      // Then start AI search in background (slow, but streams)
+      const aiResults = await api.search(query);
+      
+      if (currentSearchId !== searchIdRef.current) return;
+      
+      // Update with AI results (includes AI answer as first result)
+      setResults(aiResults);
+      
     } catch (err) {
       if (currentSearchId === searchIdRef.current) {
         setIsLoading(false);
