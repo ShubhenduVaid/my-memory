@@ -94,7 +94,7 @@ body {
 #search-status[data-state="idle"] { visibility: hidden; }
 
 /* Content Area */
-#content { display: flex; flex: 1; overflow: hidden; }
+#content { display: flex; flex: 1; min-height: 0; }
 
 #results-list {
   width: 280px;
