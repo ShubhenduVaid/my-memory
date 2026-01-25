@@ -7,3 +7,6 @@
 {"payload":"Create Homebrew cask formula test - verify formula file exists with correct structure (name, version, url, sha256, app)","topic":"tdd.start","ts":"2026-01-25T15:24:42.261955+00:00"}
 {"payload":"tests/homebrew-cask.test.ts - verifies formula exists with cask structure (name, version, url, sha256, app)","topic":"test.written","ts":"2026-01-25T15:25:35.900287+00:00"}
 {"payload":"homebrew/my-memory.rb - minimal cask formula created","topic":"test.passing","ts":"2026-01-25T15:26:25.989231+00:00"}
+{"payload":"Homebrew cask formula committed and pushed","topic":"cycle.complete","ts":"2026-01-25T15:27:18.373032+00:00"}
+{"payload":"task: Demo asset placeholders - create hero.png and demo.gif placeholders in docs/assets/","topic":"tdd.start","ts":"2026-01-25T15:28:04.144857+00:00"}
+{"payload":"hero.png and demo.gif placeholders created in docs/assets/","topic":"cycle.complete","ts":"2026-01-25T15:28:39.295870+00:00"}
