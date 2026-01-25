@@ -62,7 +62,8 @@
     "liquid-glass-react": "^1.1.1",
     "pdf-parse": "^1.1.1",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "react-grid-layout": "^2.2.2"
   },
   "build": {
     "appId": "com.mymemory.app",
