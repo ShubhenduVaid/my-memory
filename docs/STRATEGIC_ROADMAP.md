@@ -57,12 +57,20 @@
 | **r/ObsidianMD** | "I built a Spotlight for all your notes" | 500+ upvotes |
 | **r/LocalLLaMA** | "Privacy-first AI search, runs on Ollama" | Community adoption |
 
-### Deliverables
-- [ ] Performance optimization: search < 200ms
-- [ ] Polished onboarding flow (3 screens max)
-- [ ] README.md rewrite with marketing focus
-- [ ] Demo video (60 seconds)
-- [ ] Homebrew formula
+### Deliverables (Code)
+- [x] Performance optimization: search < 200ms
+- [x] Polished onboarding flow (3 screens max)
+- [x] README.md rewrite with marketing focus
+- [x] Homebrew formula
+- [x] Apple-native feel (dark mode, animations, fonts)
+- [x] Zero-config Apple Notes
+
+### Deliverables (Manual - Requires Human Action)
+- [ ] Demo video (60 seconds) - screen recording needed
+- [ ] Hacker News post: "Show HN: Local-first semantic search for Apple Notes + Notion"
+- [ ] Product Hunt launch with demo video
+- [ ] r/ObsidianMD post: "I built a Spotlight for all your notes"
+- [ ] r/LocalLLaMA post: "Privacy-first AI search, runs on Ollama"
 
 ---
 
