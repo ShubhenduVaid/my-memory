@@ -22,11 +22,19 @@ export class Onboarding {
   }
 
   setApiKey(key: string) {
-    this.apiKey = key;
+    this.apiKey = key.trim();
   }
 
   getApiKey() {
     return this.apiKey;
+  }
+
+  validateApiKey(key: string): { valid: boolean; error?: string } {
+    const trimmed = key.trim();
+    if (!trimmed) return { valid: false, error: 'API key is required' };
+    if (trimmed.length < 20) return { valid: false, error: 'API key is too short' };
+    if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) return { valid: false, error: 'API key contains invalid characters' };
+    return { valid: true };
   }
 
   toggleSource(source: string) {

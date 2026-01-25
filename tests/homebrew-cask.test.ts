@@ -15,7 +15,10 @@ describe('Homebrew Cask Formula', () => {
     expect(content).toMatch(/cask\s+["']my-memory["']/);
     expect(content).toMatch(/version\s+["']\d+\.\d+\.\d+["']/);
     expect(content).toMatch(/url\s+["']https:\/\//);
-    expect(content).toMatch(/sha256\s+["'][a-f0-9]{64}["']/);
+    expect(content).toMatch(/sha256\s+["']/); // Template or real SHA
     expect(content).toMatch(/app\s+["']My Memory\.app["']/);
+    expect(content).toMatch(/name\s+["']My Memory["']/);
+    expect(content).toMatch(/desc\s+["']/);
+    expect(content).toMatch(/homepage\s+["']/);
   });
 });

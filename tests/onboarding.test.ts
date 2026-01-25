@@ -1,20 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-
-// Onboarding flow: 3 screens
-// 1. Welcome screen with value prop
-// 2. API key setup (Gemini)
-// 3. Source selection (Apple Notes, Obsidian, Local Files)
+import { describe, it, expect } from 'vitest';
+import { Onboarding } from '../src/renderer/onboarding';
 
 describe('Onboarding', () => {
   describe('screen navigation', () => {
-    it('starts on welcome screen', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('starts on welcome screen', () => {
       const onboarding = new Onboarding();
       expect(onboarding.currentScreen).toBe('welcome');
     });
 
-    it('navigates welcome -> api-key -> sources', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('navigates welcome -> api-key -> sources', () => {
       const onboarding = new Onboarding();
       onboarding.next();
       expect(onboarding.currentScreen).toBe('api-key');
@@ -22,8 +16,7 @@ describe('Onboarding', () => {
       expect(onboarding.currentScreen).toBe('sources');
     });
 
-    it('navigates back from sources -> api-key -> welcome', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('navigates back from sources -> api-key -> welcome', () => {
       const onboarding = new Onboarding();
       onboarding.goTo('sources');
       onboarding.back();
@@ -34,8 +27,7 @@ describe('Onboarding', () => {
   });
 
   describe('state persistence', () => {
-    it('persists API key across navigation', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('persists API key across navigation', () => {
       const onboarding = new Onboarding();
       onboarding.goTo('api-key');
       onboarding.setApiKey('test-key-123');
@@ -44,8 +36,7 @@ describe('Onboarding', () => {
       expect(onboarding.getApiKey()).toBe('test-key-123');
     });
 
-    it('persists selected sources', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('persists selected sources', () => {
       const onboarding = new Onboarding();
       onboarding.goTo('sources');
       onboarding.toggleSource('apple-notes');
@@ -56,25 +47,50 @@ describe('Onboarding', () => {
   });
 
   describe('skip-to-main', () => {
-    it('allows skipping from any screen', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('allows skipping from any screen', () => {
       const onboarding = new Onboarding();
       expect(onboarding.canSkip()).toBe(true);
     });
 
-    it('marks onboarding complete on skip', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('marks onboarding complete on skip', () => {
       const onboarding = new Onboarding();
       onboarding.skip();
       expect(onboarding.isComplete()).toBe(true);
     });
 
-    it('marks onboarding complete on finish', async () => {
-      const { Onboarding } = await import('../src/renderer/onboarding');
+    it('marks onboarding complete on finish', () => {
       const onboarding = new Onboarding();
       onboarding.goTo('sources');
       onboarding.finish();
       expect(onboarding.isComplete()).toBe(true);
+    });
+  });
+
+  describe('API key validation', () => {
+    it('rejects empty key', () => {
+      const onboarding = new Onboarding();
+      expect(onboarding.validateApiKey('')).toEqual({ valid: false, error: 'API key is required' });
+    });
+
+    it('rejects short key', () => {
+      const onboarding = new Onboarding();
+      expect(onboarding.validateApiKey('abc')).toEqual({ valid: false, error: 'API key is too short' });
+    });
+
+    it('rejects invalid characters', () => {
+      const onboarding = new Onboarding();
+      expect(onboarding.validateApiKey('abcdefghijklmnopqrst!@#$')).toEqual({ valid: false, error: 'API key contains invalid characters' });
+    });
+
+    it('accepts valid key', () => {
+      const onboarding = new Onboarding();
+      expect(onboarding.validateApiKey('AIzaSyA1234567890abcdefg')).toEqual({ valid: true });
+    });
+
+    it('trims whitespace on setApiKey', () => {
+      const onboarding = new Onboarding();
+      onboarding.setApiKey('  key123456789012345  ');
+      expect(onboarding.getApiKey()).toBe('key123456789012345');
     });
   });
 });
