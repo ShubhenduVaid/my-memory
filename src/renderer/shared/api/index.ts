@@ -50,6 +50,7 @@ interface ElectronApi {
   selectLocalFolder: () => Promise<{ canceled: boolean; path?: string }>;
   syncLocalNow: () => Promise<{ ok: boolean }>;
   openNote: (noteId: string) => void;
+  hideWindow: () => Promise<{ ok: true }>;
   onSearchStreamChunk?: (callback: (chunk: string) => void) => () => void;
   onSearchStreamDone?: (callback: () => void) => () => void;
   onThemeChange?: (callback: (isDark: boolean) => void) => () => void;

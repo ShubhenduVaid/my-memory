@@ -103,9 +103,11 @@ function createWindow(): void {
     width: 900,
     height: 600,
     show: false,
-    frame: false,
-    titleBarStyle: isMac ? 'hidden' : undefined,
-    trafficLightPosition: isMac ? { x: 20, y: 20 } : undefined,
+    // macOS: keep native traffic lights but hide the titlebar chrome.
+    // Non-macOS: use a fully frameless window.
+    frame: isMac ? true : false,
+    titleBarStyle: isMac ? 'hiddenInset' : undefined,
+    trafficLightPosition: isMac ? { x: 16, y: 14 } : undefined,
     resizable: true,
     skipTaskbar: true,
     autoHideMenuBar: true,
@@ -455,6 +457,11 @@ ipcMain.handle('search-local', async (_event, query: string) => {
 ipcMain.handle('ping', () => {
   console.log('[IPC] ping');
   return 'pong';
+});
+
+ipcMain.handle('window-hide', () => {
+  mainWindow?.hide();
+  return { ok: true };
 });
 
 ipcMain.handle('get-system-theme', () => {
