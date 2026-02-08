@@ -1,21 +1,25 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  build:
+    name: Build (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macos-latest
-            platform: mac
+            platform: macos
           - os: windows-latest
-            platform: win
+            platform: windows
           - os: ubuntu-latest
             platform: linux
 
@@ -30,9 +34,22 @@ jobs:
           cache: "npm"
 
       - run: npm ci
-      - run: npm run build
 
-      - name: Publish
+      # Manual build: build distributables and upload as workflow artifacts
+      - name: Build distributables (no publish)
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run dist
+
+      - name: Upload artifacts (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-memory-${{ matrix.platform }}
+          path: release/**
+
+      # Tag build: publish to GitHub Releases via electron-builder
+      - name: Publish (macOS)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'macos'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
@@ -42,6 +59,22 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        run: npm run release:mac
+
+      - name: Publish (Windows)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'windows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
           WIN_CSC_LINK: ${{ secrets.WIN_CERTS }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTS_PASSWORD }}
-        run: npm run release -- --${{ matrix.platform }}
+        run: npm run release:win
+
+      - name: Publish (Linux)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: npm run release:linux
