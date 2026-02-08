@@ -44,6 +44,8 @@ Get a free API key at https://makersuite.google.com/app/apikey
 | `npm run dist` | Create distributable for current platform |
 | `npm run release` | Build and publish release |
 
+See [RELEASING.md](RELEASING.md) for the GitHub Actions release workflow and optional signing/notarization.
+
 ## Project Structure
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed structure.
