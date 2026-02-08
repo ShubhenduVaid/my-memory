@@ -9,6 +9,8 @@
 
 ## Quick Start
 
+For a shorter copy/paste guide, see [QUICKSTART.md](QUICKSTART.md).
+
 ```bash
 # Clone the repository
 git clone https://github.com/ShubhenduVaid/my-memory.git
