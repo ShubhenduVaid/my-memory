@@ -8,13 +8,10 @@ export const SearchBar: React.FC<{
   onSelectIndex?: (index: number) => void;
   onOpenSelected?: () => void;
   onClose?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }> = ({
   onSearch,
-  selectedIndex = 0,
-  resultsLength = 0,
-  onSelectIndex,
-  onOpenSelected,
-  onClose,
+  inputRef,
 }) => {
   const [query, setQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,45 +36,13 @@ export const SearchBar: React.FC<{
     [onSearch]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      switch (e.key) {
-        case 'ArrowDown': {
-          if (!onSelectIndex || resultsLength <= 0) return;
-          e.preventDefault();
-          onSelectIndex(Math.min(selectedIndex + 1, resultsLength - 1));
-          break;
-        }
-        case 'ArrowUp': {
-          if (!onSelectIndex || resultsLength <= 0) return;
-          e.preventDefault();
-          onSelectIndex(Math.max(selectedIndex - 1, 0));
-          break;
-        }
-        case 'Enter': {
-          if (!onOpenSelected) return;
-          e.preventDefault();
-          onOpenSelected();
-          break;
-        }
-        case 'Escape': {
-          e.preventDefault();
-          if (onClose) onClose();
-          else api.hideWindow();
-          break;
-        }
-      }
-    },
-    [onClose, onOpenSelected, onSelectIndex, resultsLength, selectedIndex]
-  );
-
   return (
     <div className="search-bar">
       <input
+        ref={inputRef as any}
         type="text"
         value={query}
         onChange={handleChange}
-        onKeyDown={handleKeyDown}
         placeholder="Search your notes..."
         autoFocus
         className="glass-input"
@@ -92,28 +57,37 @@ export const SearchResults: React.FC<{
   onSelect: (index: number) => void;
   onOpen: (result: SearchResult) => void;
   isLoading?: boolean;
-}> = ({ results, selectedIndex, onSelect, onOpen, isLoading }) => (
-  <div className="search-results" role="listbox" aria-label="Search results">
-    {isLoading && results.length === 0 && <div className="search-loading">Searching...</div>}
-    {!isLoading && results.length === 0 ? (
-      <div className="search-empty">No results found</div>
-    ) : (
-      results.map((result, i) => (
-        <div
-          key={result.id}
-          className={`search-result ${i === selectedIndex ? 'selected' : ''}`}
-          role="option"
-          aria-selected={i === selectedIndex}
-          onClick={() => onSelect(i)}
-          onDoubleClick={() => onOpen(result)}
-        >
-          <div className="result-title">{result.title}</div>
-          {result.folder && <div className="result-folder">{result.folder}</div>}
-        </div>
-      ))
-    )}
-  </div>
-);
+}> = ({ results, selectedIndex, onSelect, onOpen, isLoading }) => {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>('.search-result.selected');
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex, results.length]);
+
+  return (
+    <div ref={listRef} className="search-results" role="listbox" aria-label="Search results">
+      {isLoading && results.length === 0 && <div className="search-loading">Searching...</div>}
+      {!isLoading && results.length === 0 ? (
+        <div className="search-empty">No results found</div>
+      ) : (
+        results.map((result, i) => (
+          <div
+            key={result.id}
+            className={`search-result ${i === selectedIndex ? 'selected' : ''}`}
+            role="option"
+            aria-selected={i === selectedIndex}
+            onClick={() => onSelect(i)}
+            onDoubleClick={() => onOpen(result)}
+          >
+            <div className="result-title">{result.title}</div>
+            {result.folder && <div className="result-folder">{result.folder}</div>}
+          </div>
+        ))
+      )}
+    </div>
+  );
+};
 
 export const NotePreview: React.FC<{
   result: SearchResult | null;
@@ -129,17 +103,14 @@ export const NotePreview: React.FC<{
 
   // For AI answer, show streaming content or final content
   const isAiAnswer = result.id === 'ai-answer' || result.id === 'ai-streaming';
-  const content = isAiAnswer 
+  const content = isAiAnswer
     ? (streamingContent || result.content || result.snippet || '')
-    : (result.snippet || result.content || '');
+    : (result.content || result.snippet || '');
 
   return (
     <div className="note-preview">
       <div className="preview-title">{result.title}</div>
-      <div 
-        className="preview-content"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
+      <div className="preview-content">{content}</div>
       {isAiAnswer && streamingContent && <span className="streaming-cursor">▌</span>}
     </div>
   );

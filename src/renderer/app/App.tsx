@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSystemTheme } from '../shared/hooks/useSystemTheme';
 import { CommandPalette, useCommandPalette, Command } from '../widgets/CommandPalette';
 import { SearchBar, SearchResults, NotePreview, useSearch } from '../features/Search';
@@ -12,11 +12,63 @@ export const App: React.FC = () => {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const { isOpen, close } = useCommandPalette();
   const { results, selectedIndex, setSelectedIndex, streamingContent, search, openNote, selectedResult, isLoading } = useSearch();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = useCallback((query: string) => {
     search(query);
     setRecentSearches(prev => [query, ...prev.filter(s => s !== query)].slice(0, 10));
   }, [search]);
+
+  useEffect(() => {
+    if (view !== 'search') return;
+
+    const isEditableTarget = (el: Element | null): boolean => {
+      if (!el) return false;
+      const tag = (el as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+      return Boolean((el as HTMLElement).isContentEditable);
+    };
+
+    const handler = (e: KeyboardEvent) => {
+      if (isOpen) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const active = document.activeElement;
+      const inTextField = isEditableTarget(active);
+      const inSearchField = active === searchInputRef.current;
+      if (inTextField && !inSearchField) return;
+
+      switch (e.key) {
+        case 'ArrowDown': {
+          if (results.length <= 0) return;
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+          break;
+        }
+        case 'ArrowUp': {
+          if (results.length <= 0) return;
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+          break;
+        }
+        case 'Enter': {
+          if (!selectedResult) return;
+          if (selectedResult.id === 'ai-answer' || selectedResult.id === 'ai-streaming') return;
+          e.preventDefault();
+          openNote(selectedResult);
+          break;
+        }
+        case 'Escape': {
+          e.preventDefault();
+          void api.hideWindow();
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, openNote, results.length, selectedResult, setSelectedIndex, view]);
 
   const commands: Command[] = [
     { id: 'search', label: 'Go to Search', shortcut: '⌘⇧Space', action: () => setView('search'), category: 'navigation' },
@@ -35,6 +87,7 @@ export const App: React.FC = () => {
         <>
           <SearchBar
             onSearch={handleSearch}
+            inputRef={searchInputRef}
             selectedIndex={selectedIndex}
             resultsLength={results.length}
             onSelectIndex={setSelectedIndex}

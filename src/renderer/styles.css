@@ -23,7 +23,19 @@ body {
   flex-direction: column;
 }
 
-#app { display: flex; flex-direction: column; height: 100%; }
+#root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
 
 /* Search Bar - Clean, minimal */
 #search-bar {

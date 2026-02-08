@@ -247,11 +247,15 @@ async function initializeApp(): Promise<void> {
 
   // Set up change watchers
   for (const adapter of pluginRegistry.getAll()) {
-    adapter.watch(async notes => {
-      cache.clearSource(adapter.name);
-      cache.upsertMany(notes);
-      cache.setSyncState(adapter.name);
-    });
+    try {
+      adapter.watch(notes => {
+        cache.clearSource(adapter.name);
+        cache.upsertMany(notes);
+        cache.setSyncState(adapter.name);
+      });
+    } catch (error) {
+      console.error(`[Watch] Failed to start watcher for ${adapter.name}:`, error);
+    }
   }
 
   // Load from cache or sync
