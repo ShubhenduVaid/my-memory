@@ -17,7 +17,8 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  overflow: visible !important;
+  /* Prevent whole-window scroll; only panels should scroll */
+  overflow: hidden !important;
 }
 
 #app {
@@ -31,8 +32,13 @@
   min-width: 280px;
   max-width: 280px;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: auto !important;
   flex-shrink: 0;
+
+  /* Critical for scroll inside flex layouts */
+  min-height: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 
 .search-result {
@@ -77,8 +83,12 @@
 #app > #content > .note-preview {
   flex: 1;
   padding: 20px;
-  overflow: auto !important;
   min-width: 0;
+
+  /* Critical for scroll inside flex layouts */
+  min-height: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden;
 }
 
 .preview-placeholder {
@@ -98,6 +108,7 @@
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.85);
   word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .streaming-cursor {

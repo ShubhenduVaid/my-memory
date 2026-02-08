@@ -129,17 +129,14 @@ export const NotePreview: React.FC<{
 
   // For AI answer, show streaming content or final content
   const isAiAnswer = result.id === 'ai-answer' || result.id === 'ai-streaming';
-  const content = isAiAnswer 
+  const content = isAiAnswer
     ? (streamingContent || result.content || result.snippet || '')
-    : (result.snippet || result.content || '');
+    : (result.content || result.snippet || '');
 
   return (
     <div className="note-preview">
       <div className="preview-title">{result.title}</div>
-      <div 
-        className="preview-content"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
+      <div className="preview-content">{content}</div>
       {isAiAnswer && streamingContent && <span className="streaming-cursor">▌</span>}
     </div>
   );
