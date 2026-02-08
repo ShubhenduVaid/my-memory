@@ -1,0 +1,25 @@
+/* Settings modal tweaks (base modal styles live in shared/styles/global.css) */
+
+.settings-modal.modal {
+  z-index: 1100;
+}
+
+.settings-modal .modal-content {
+  width: 540px;
+}
+
+.settings-modal .modal-close {
+  padding: 0;
+}
+
+@media (max-width: 620px) {
+  .settings-modal .modal-content {
+    width: calc(100vw - 32px);
+  }
+}
+
+.settings-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api, SearchResult } from '../../shared/api';
+import { SettingsButton } from '../../widgets/SettingsModal';
 
 export const SearchBar: React.FC<{
   onSearch: (query: string) => void;
@@ -8,10 +9,12 @@ export const SearchBar: React.FC<{
   onSelectIndex?: (index: number) => void;
   onOpenSelected?: () => void;
   onClose?: () => void;
+  onOpenSettings?: () => void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }> = ({
   onSearch,
   inputRef,
+  onOpenSettings,
 }) => {
   const [query, setQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,15 +41,18 @@ export const SearchBar: React.FC<{
 
   return (
     <div className="search-bar">
-      <input
-        ref={inputRef as any}
-        type="text"
-        value={query}
-        onChange={handleChange}
-        placeholder="Search your notes..."
-        autoFocus
-        className="glass-input"
-      />
+      <div className="search-row">
+        <input
+          ref={inputRef as any}
+          type="text"
+          value={query}
+          onChange={handleChange}
+          placeholder="Search your notes..."
+          autoFocus
+          className="glass-input"
+        />
+        <SettingsButton onClick={() => onOpenSettings?.()} disabled={!onOpenSettings} />
+      </div>
     </div>
   );
 };
