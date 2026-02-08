@@ -102,7 +102,8 @@ More details live in the docs:
 - Integrations: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Development: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-- Releasing: [docs/RELEASING.md](docs/RELEASING.md)
+- FAQ: [docs/FAQ.md](docs/FAQ.md)
+- Contributing starters: [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md)
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Troubleshooting (common)
