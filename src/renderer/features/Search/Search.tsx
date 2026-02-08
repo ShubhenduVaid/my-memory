@@ -42,7 +42,6 @@ export const SearchBar: React.FC<{
   return (
     <div className="search-bar">
       <div className="search-row">
-        <SettingsButton onClick={() => onOpenSettings?.()} disabled={!onOpenSettings} />
         <input
           ref={inputRef as any}
           type="text"
@@ -52,6 +51,7 @@ export const SearchBar: React.FC<{
           autoFocus
           className="glass-input"
         />
+        <SettingsButton onClick={() => onOpenSettings?.()} disabled={!onOpenSettings} />
       </div>
     </div>
   );
