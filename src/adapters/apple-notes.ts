@@ -98,16 +98,49 @@ export class AppleNotesAdapter implements ISourceAdapter {
   /** Watch for changes to Apple Notes database */
   watch(callback: WatchCallback): void {
     this.callback = callback;
-    this.watcher = watch(this.dbPath, { persistent: false }, async () => {
-      if (this.callback) {
-        try {
-          const notes = await this.fetchAll();
-          this.callback(notes);
-        } catch (error) {
-          console.error('[AppleNotes] Watch error:', error);
+    try {
+      this.watcher = watch(this.dbPath, { persistent: false }, () => {
+        void this.onChange();
+      });
+      this.watcher.on('error', (error) => {
+        // Ensure file watcher errors never take down the app (macOS often blocks watching
+        // some protected locations unless the app has Full Disk Access).
+        const code = typeof (error as any)?.code === 'string' ? (error as any).code : 'UNKNOWN';
+        if (code === 'EPERM' || code === 'EACCES' || code === 'ENOENT') {
+          console.warn(`[AppleNotes] Watcher error; live updates disabled. (code=${code})`);
+        } else {
+          console.warn('[AppleNotes] Watcher error; live updates disabled:', error);
         }
+        this.watcher?.close();
+        this.watcher = null;
+      });
+    } catch (error: any) {
+      // fs.watch can throw synchronously (e.g. EPERM/EACCES/ENOENT). Treat it as
+      // non-fatal and keep the adapter usable for manual sync.
+      const code = typeof error?.code === 'string' ? error.code : 'UNKNOWN';
+      const message =
+        code === 'EPERM' || code === 'EACCES'
+          ? `No permission to watch Apple Notes DB (${this.dbPath}). Grant Full Disk Access to enable live updates.`
+          : code === 'ENOENT'
+            ? `Apple Notes DB not found at ${this.dbPath}; live updates disabled.`
+            : `Failed to watch Apple Notes DB (${this.dbPath}); live updates disabled.`;
+      if (code === 'EPERM' || code === 'EACCES' || code === 'ENOENT') {
+        console.warn(`[AppleNotes] ${message} (code=${code})`);
+      } else {
+        console.warn(`[AppleNotes] ${message}`, error);
       }
-    });
+      this.watcher = null;
+    }
+  }
+
+  private async onChange(): Promise<void> {
+    if (!this.callback) return;
+    try {
+      const notes = await this.fetchAll();
+      this.callback(notes);
+    } catch (error) {
+      console.error('[AppleNotes] Watch callback error:', error);
+    }
   }
 
   /** Stop watching for changes */

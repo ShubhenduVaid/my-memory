@@ -13,7 +13,8 @@ import {
   dialog,
   Menu,
   shell,
-  session
+  session,
+  nativeTheme
 } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -102,7 +103,11 @@ function createWindow(): void {
     width: 900,
     height: 600,
     show: false,
-    frame: false,
+    // macOS: keep native traffic lights but hide the titlebar chrome.
+    // Non-macOS: use a fully frameless window.
+    frame: isMac ? true : false,
+    titleBarStyle: isMac ? 'hiddenInset' : undefined,
+    trafficLightPosition: isMac ? { x: 16, y: 14 } : undefined,
     resizable: true,
     skipTaskbar: true,
     autoHideMenuBar: true,
@@ -242,11 +247,15 @@ async function initializeApp(): Promise<void> {
 
   // Set up change watchers
   for (const adapter of pluginRegistry.getAll()) {
-    adapter.watch(async notes => {
-      cache.clearSource(adapter.name);
-      cache.upsertMany(notes);
-      cache.setSyncState(adapter.name);
-    });
+    try {
+      adapter.watch(notes => {
+        cache.clearSource(adapter.name);
+        cache.upsertMany(notes);
+        cache.setSyncState(adapter.name);
+      });
+    } catch (error) {
+      console.error(`[Watch] Failed to start watcher for ${adapter.name}:`, error);
+    }
   }
 
   // Load from cache or sync
@@ -275,6 +284,66 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
   });
+
+  // Set up native application menu
+  const appMenu = Menu.buildFromTemplate([
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' as const },
+        { type: 'separator' as const },
+        { label: 'Settings...', accelerator: 'Cmd+,', click: () => mainWindow?.webContents.send('open-settings') },
+        { type: 'separator' as const },
+        { role: 'hide' as const },
+        { role: 'hideOthers' as const },
+        { role: 'unhide' as const },
+        { type: 'separator' as const },
+        { role: 'quit' as const }
+      ]
+    }] : []),
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Search', accelerator: 'CmdOrCtrl+N', click: toggleWindow },
+        { type: 'separator' as const },
+        { label: 'Sync All Sources', accelerator: 'CmdOrCtrl+R', click: syncNotes },
+        { type: 'separator' as const },
+        isMac ? { role: 'close' as const } : { role: 'quit' as const }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' as const },
+        { role: 'redo' as const },
+        { type: 'separator' as const },
+        { role: 'cut' as const },
+        { role: 'copy' as const },
+        { role: 'paste' as const },
+        { role: 'selectAll' as const }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Command Palette', accelerator: 'CmdOrCtrl+K', click: () => mainWindow?.webContents.send('toggle-command-palette') },
+        { type: 'separator' as const },
+        { role: 'togglefullscreen' as const }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' as const },
+        { role: 'zoom' as const },
+        ...(isMac ? [
+          { type: 'separator' as const },
+          { role: 'front' as const }
+        ] : [])
+      ]
+    }
+  ]);
+  Menu.setApplicationMenu(appMenu);
 
   createWindow();
   createTray();
@@ -392,6 +461,20 @@ ipcMain.handle('search-local', async (_event, query: string) => {
 ipcMain.handle('ping', () => {
   console.log('[IPC] ping');
   return 'pong';
+});
+
+ipcMain.handle('window-hide', () => {
+  mainWindow?.hide();
+  return { ok: true };
+});
+
+ipcMain.handle('get-system-theme', () => {
+  return nativeTheme.shouldUseDarkColors;
+});
+
+// Notify renderer when system theme changes
+nativeTheme.on('updated', () => {
+  mainWindow?.webContents.send('theme-changed', nativeTheme.shouldUseDarkColors);
 });
 
 ipcMain.handle('get-gemini-key-status', () => {
