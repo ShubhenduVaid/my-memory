@@ -9,6 +9,8 @@
 
 ## Quick Start
 
+For a shorter copy/paste guide, see [QUICKSTART.md](QUICKSTART.md).
+
 ```bash
 # Clone the repository
 git clone https://github.com/ShubhenduVaid/my-memory.git
@@ -43,6 +45,8 @@ Get a free API key at https://makersuite.google.com/app/apikey
 | `npm run start` | Build and run the app |
 | `npm run dist` | Create distributable for current platform |
 | `npm run release` | Build and publish release |
+
+See [RELEASING.md](RELEASING.md) for the GitHub Actions release workflow and optional signing/notarization.
 
 ## Project Structure
 
