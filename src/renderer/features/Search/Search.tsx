@@ -3,19 +3,73 @@ import { api, SearchResult } from '../../shared/api';
 
 export const SearchBar: React.FC<{
   onSearch: (query: string) => void;
-}> = ({ onSearch }) => {
+  selectedIndex?: number;
+  resultsLength?: number;
+  onSelectIndex?: (index: number) => void;
+  onOpenSelected?: () => void;
+  onClose?: () => void;
+}> = ({
+  onSearch,
+  selectedIndex = 0,
+  resultsLength = 0,
+  onSelectIndex,
+  onOpenSelected,
+  onClose,
+}) => {
   const [query, setQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-    
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (value.trim()) onSearch(value);
-    }, 300);
-  }, [onSearch]);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setQuery(value);
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      // If the user clears the query, clear results immediately.
+      if (!value.trim()) {
+        onSearch('');
+        return;
+      }
+
+      debounceRef.current = setTimeout(() => {
+        onSearch(value);
+      }, 300);
+    },
+    [onSearch]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      switch (e.key) {
+        case 'ArrowDown': {
+          if (!onSelectIndex || resultsLength <= 0) return;
+          e.preventDefault();
+          onSelectIndex(Math.min(selectedIndex + 1, resultsLength - 1));
+          break;
+        }
+        case 'ArrowUp': {
+          if (!onSelectIndex || resultsLength <= 0) return;
+          e.preventDefault();
+          onSelectIndex(Math.max(selectedIndex - 1, 0));
+          break;
+        }
+        case 'Enter': {
+          if (!onOpenSelected) return;
+          e.preventDefault();
+          onOpenSelected();
+          break;
+        }
+        case 'Escape': {
+          e.preventDefault();
+          if (onClose) onClose();
+          else api.hideWindow();
+          break;
+        }
+      }
+    },
+    [onClose, onOpenSelected, onSelectIndex, resultsLength, selectedIndex]
+  );
 
   return (
     <div className="search-bar">
@@ -23,6 +77,7 @@ export const SearchBar: React.FC<{
         type="text"
         value={query}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         placeholder="Search your notes..."
         autoFocus
         className="glass-input"
@@ -112,9 +167,19 @@ export function useSearch() {
 
   const search = useCallback(async (query: string) => {
     const currentSearchId = ++searchIdRef.current;
+
+    // Empty query = clear UI state.
+    if (!query.trim()) {
+      setResults([]);
+      setSelectedIndex(0);
+      setStreamingContent('');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setStreamingContent('');
-    
+
     try {
       // First, get local results immediately (fast)
       const localResults = await api.searchLocal(query);

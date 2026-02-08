@@ -72,6 +72,9 @@ const api = {
   /** Debug ping to verify IPC */
   ping: () => ipcRenderer.invoke('ping'),
 
+  /** Hide the main window (e.g. on Escape) */
+  hideWindow: () => ipcRenderer.invoke('window-hide'),
+
   /** Open a note in Apple Notes */
   openNote: (noteId: string) => ipcRenderer.send('open-note', noteId),
 

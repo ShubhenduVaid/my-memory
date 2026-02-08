@@ -33,7 +33,19 @@ export const App: React.FC = () => {
       
       {view === 'search' ? (
         <>
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar
+            onSearch={handleSearch}
+            selectedIndex={selectedIndex}
+            resultsLength={results.length}
+            onSelectIndex={setSelectedIndex}
+            onOpenSelected={() => {
+              if (!selectedResult) return;
+              // Avoid trying to “open” the AI answer pseudo-result.
+              if (selectedResult.id === 'ai-answer' || selectedResult.id === 'ai-streaming') return;
+              openNote(selectedResult);
+            }}
+            onClose={() => api.hideWindow()}
+          />
           <div id="content">
             <SearchResults
               results={results}
