@@ -98,6 +98,7 @@ See [SECURITY.md](SECURITY.md) for the full security/privacy notes.
 - **Notion**: Create integration at notion.so/my-integrations → share pages with integration → paste token
 
 More details live in the docs:
+- Quickstart: [docs/QUICKSTART.md](docs/QUICKSTART.md)
 - Integrations: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Development: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
