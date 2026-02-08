@@ -45,6 +45,15 @@ npm install
 npm start
 ```
 
+### Tests
+
+```bash
+npm test
+npm run test:coverage
+```
+
+Coverage thresholds are enforced via `vitest.config.ts`. Reports are generated in `coverage/` (gitignored).
+
 ### Configure
 
 Create a `.env` file (see `.env.example`). Minimal setup (Gemini):
