@@ -8,8 +8,20 @@
   flex-shrink: 0;
 }
 
-.search-bar input {
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-bar input,
+.search-bar button {
   -webkit-app-region: no-drag;
+}
+
+/* Ensure the gear button stays a compact square even with global button styles. */
+#settings-toggle {
+  padding: 0;
 }
 
 /* Content area layout - use !important to override global.css */
